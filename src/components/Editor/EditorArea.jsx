@@ -276,9 +276,11 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       base: 'vs-dark',
       inherit: true,
       rules: [
-        // Comments
-        { token: 'comment',          foreground: '4d5566', fontStyle: 'italic' },
-        { token: 'comment.doc',      foreground: '5a7a8c', fontStyle: 'italic' },
+        // Comments - enhanced styling with better visual hierarchy
+        { token: 'comment',          foreground: '7fdbca', fontStyle: 'italic' },
+        { token: 'comment.doc',      foreground: '82aaff', fontStyle: 'italic' },
+        { token: 'comment.block',    foreground: '7fdbca', fontStyle: 'italic' },
+        { token: 'comment.line',     foreground: '637777', fontStyle: 'italic' },
         
         // Keywords
         { token: 'keyword',          foreground: 'c792ea', fontStyle: 'bold' },
@@ -539,6 +541,104 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         { open: '(', close: ')' },
         { open: '"', close: '"' },
       ],
+    });
+
+    // Enhanced C/C++ semantic highlighting
+    monaco.languages.registerDocumentSemanticTokensProvider('cpp', {
+      getLegend: () => ({
+        tokenTypes: [
+          'namespace', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'type',
+          'parameter', 'variable', 'property', 'enumMember', 'function', 'method', 'macro',
+          'keyword', 'comment', 'string', 'number', 'operator'
+        ],
+        tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary']
+      }),
+      provideDocumentSemanticTokens: (model) => {
+        const lines = model.getLinesContent();
+        const data = [];
+        
+        lines.forEach((line, lineIndex) => {
+          // Preprocessor directives
+          if (line.match(/^\s*#\s*(include|define|ifdef|ifndef|endif|pragma)/)) {
+            const match = line.match(/#\s*(\w+)/);
+            if (match) {
+              data.push(lineIndex, match.index, match[0].length, 13, 0); // macro token
+            }
+          }
+          
+          // Function calls - match word followed by (
+          const funcMatches = line.matchAll(/\b([a-zA-Z_]\w*)\s*\(/g);
+          for (const match of funcMatches) {
+            data.push(lineIndex, match.index, match[1].length, 11, 0); // function token
+          }
+          
+          // Type names (capitalized words, common types)
+          const typeMatches = line.matchAll(/\b([A-Z][a-zA-Z0-9_]*|PVOID|HANDLE|DWORD|ULONG|NTSTATUS|BOOLEAN|PCHAR|PWSTR|SIZE_T)\b/g);
+          for (const match of typeMatches) {
+            data.push(lineIndex, match.index, match[0].length, 6, 0); // type token
+          }
+          
+          // Macros and constants (ALL_CAPS)
+          const macroMatches = line.matchAll(/\b([A-Z_][A-Z0-9_]{2,})\b/g);
+          for (const match of macroMatches) {
+            data.push(lineIndex, match.index, match[0].length, 13, 0); // macro token
+          }
+        });
+        
+        return {
+          data: new Uint32Array(data)
+        };
+      },
+      releaseDocumentSemanticTokens: () => {}
+    });
+
+    // Also register for C language
+    monaco.languages.registerDocumentSemanticTokensProvider('c', {
+      getLegend: () => ({
+        tokenTypes: [
+          'namespace', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'type',
+          'parameter', 'variable', 'property', 'enumMember', 'function', 'method', 'macro',
+          'keyword', 'comment', 'string', 'number', 'operator'
+        ],
+        tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary']
+      }),
+      provideDocumentSemanticTokens: (model) => {
+        const lines = model.getLinesContent();
+        const data = [];
+        
+        lines.forEach((line, lineIndex) => {
+          // Preprocessor directives
+          if (line.match(/^\s*#\s*(include|define|ifdef|ifndef|endif|pragma)/)) {
+            const match = line.match(/#\s*(\w+)/);
+            if (match) {
+              data.push(lineIndex, match.index, match[0].length, 13, 0);
+            }
+          }
+          
+          // Function calls
+          const funcMatches = line.matchAll(/\b([a-zA-Z_]\w*)\s*\(/g);
+          for (const match of funcMatches) {
+            data.push(lineIndex, match.index, match[1].length, 11, 0);
+          }
+          
+          // Type names
+          const typeMatches = line.matchAll(/\b([A-Z][a-zA-Z0-9_]*|PVOID|HANDLE|DWORD|ULONG|NTSTATUS|BOOLEAN|PCHAR|PWSTR|SIZE_T)\b/g);
+          for (const match of typeMatches) {
+            data.push(lineIndex, match.index, match[0].length, 6, 0);
+          }
+          
+          // Macros
+          const macroMatches = line.matchAll(/\b([A-Z_][A-Z0-9_]{2,})\b/g);
+          for (const match of macroMatches) {
+            data.push(lineIndex, match.index, match[0].length, 13, 0);
+          }
+        });
+        
+        return {
+          data: new Uint32Array(data)
+        };
+      },
+      releaseDocumentSemanticTokens: () => {}
     });
 
     // Set theme
