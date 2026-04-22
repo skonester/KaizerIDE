@@ -32,7 +32,7 @@ const getLanguageFromPath = (filePath) => {
     'yaml': 'yaml',
     'xml': 'xml',
     'vcxproj': 'xml',
-    'sln': 'plaintext',
+    'sln': 'sln',
     'props': 'xml',
     'targets': 'xml',
     'csproj': 'xml',
@@ -278,9 +278,22 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       rules: [
         { token: 'comment',          foreground: '4d5566', fontStyle: 'italic' },
         { token: 'keyword',          foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.solution', foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.version',  foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.project',  foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.global',   foreground: 'c792ea', fontStyle: 'bold' },
+        { token: 'keyword.section',  foreground: '82aaff', fontStyle: 'bold' },
         { token: 'string',           foreground: 'c3e88d' },
+        { token: 'string.quote',     foreground: 'c3e88d' },
+        { token: 'string.escape',    foreground: 'f78c6c' },
+        { token: 'string.invalid',   foreground: 'ff5370' },
         { token: 'number',           foreground: 'f78c6c' },
+        { token: 'number.float',     foreground: 'f78c6c' },
+        { token: 'constant.guid',    foreground: 'ffcb6b' },
         { token: 'type',             foreground: '82aaff' },
+        { token: 'type.config',      foreground: '89ddff' },
+        { token: 'type.property',    foreground: 'f07178' },
+        { token: 'type.section',     foreground: '82aaff' },
         { token: 'class',            foreground: 'ffcb6b' },
         { token: 'function',         foreground: '82aaff' },
         { token: 'variable',         foreground: 'eeffff' },
@@ -401,6 +414,93 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         'editorOverviewRuler.border':      '#00000000',
         'editorOverviewRuler.selectionHighlightForeground': '#666666',
       }
+    });
+
+    // Register custom language for .sln files
+    monaco.languages.register({ id: 'sln' });
+    
+    monaco.languages.setMonarchTokensProvider('sln', {
+      tokenizer: {
+        root: [
+          // Comments
+          [/#.*$/, 'comment'],
+          
+          // Section headers
+          [/^(Microsoft Visual Studio Solution File)/, 'keyword.solution'],
+          [/^(VisualStudioVersion|MinimumVisualStudioVersion)/, 'keyword.version'],
+          
+          // Project declarations
+          [/^Project\(/, { token: 'keyword.project', next: '@project' }],
+          [/^EndProject/, 'keyword.project'],
+          
+          // Global sections
+          [/^Global/, 'keyword.global'],
+          [/^EndGlobal/, 'keyword.global'],
+          [/^\s*GlobalSection\(/, { token: 'keyword.section', next: '@section' }],
+          [/^\s*EndGlobalSection/, 'keyword.section'],
+          
+          // GUIDs
+          [/\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/, 'constant.guid'],
+          
+          // Strings
+          [/"([^"\\]|\\.)*$/, 'string.invalid'],
+          [/"/, { token: 'string.quote', next: '@string' }],
+          
+          // Configuration names
+          [/(Debug|Release|Any CPU|x86|x64|ARM|ARM64)/, 'type.config'],
+          
+          // Properties
+          [/\b(preSolution|postSolution|preProject|postProject)\b/, 'type.property'],
+          
+          // Operators
+          [/=/, 'operator'],
+          [/\|/, 'delimiter'],
+          [/,/, 'delimiter'],
+          
+          // Numbers
+          [/\d+\.\d+/, 'number.float'],
+          [/\d+/, 'number'],
+        ],
+        
+        project: [
+          [/\)/, { token: 'keyword.project', next: '@pop' }],
+          [/\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/, 'constant.guid'],
+          [/"([^"\\]|\\.)*"/, 'string'],
+          [/,/, 'delimiter'],
+        ],
+        
+        section: [
+          [/\)/, { token: 'keyword.section', next: '@pop' }],
+          [/[^)]+/, 'type.section'],
+        ],
+        
+        string: [
+          [/[^\\"]+/, 'string'],
+          [/\\./, 'string.escape'],
+          [/"/, { token: 'string.quote', next: '@pop' }],
+        ],
+      },
+    });
+    
+    // Configure language features for .sln
+    monaco.languages.setLanguageConfiguration('sln', {
+      comments: {
+        lineComment: '#',
+      },
+      brackets: [
+        ['{', '}'],
+        ['(', ')'],
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+      ],
+      surroundingPairs: [
+        { open: '{', close: '}' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+      ],
     });
 
     // Set theme
