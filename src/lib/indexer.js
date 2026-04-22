@@ -109,124 +109,66 @@ export class WorkspaceIndexer {
     const IGNORE = new Set(['node_modules','.git','dist','release','build',
       '__pycache__','target','.next','out','.cache','coverage','vendor'])
     
-    // Only index code and text files
-    const CODE_EXT = new Set([
-      // Web Frontend
-      '.js','.jsx','.ts','.tsx','.mjs','.cjs','.es6',
-      '.html','.htm','.xhtml',
-      '.css','.scss','.sass','.less','.styl','.stylus',
-      '.vue','.svelte','.astro','.marko',
-      // Web Backend & Frameworks
-      '.php','.phtml','.php3','.php4','.php5','.phps',
-      '.asp','.aspx','.cshtml','.vbhtml',
-      '.jsp','.jspx',
-      '.erb','.haml','.slim',
-      // JavaScript/TypeScript
-      '.mts','.cts','.d.ts',
-      // Python
-      '.py','.pyw','.pyx','.pxd','.pyi',
-      // Ruby
-      '.rb','.rbw','.rake','.gemspec',
-      // Java/JVM
-      '.java','.kt','.kts','.scala','.groovy','.gradle',
-      // Go
-      '.go','.mod','.sum',
-      // Rust
-      '.rs','.rlib',
-      // C/C++
-      '.c','.cpp','.cc','.cxx','.c++',
-      '.h','.hpp','.hxx','.hh','.h++','.inl','.ipp',
-      '.m','.mm',
-      // C#/.NET
-      '.cs','.csx','.vb','.fs','.fsx','.fsi',
-      // Swift/Objective-C
-      '.swift',
-      // Mobile
-      '.dart','.kt','.java',
+    // Whitelist of code file extensions to index
+    const CODE_EXTENSIONS = new Set([
+      // Web
+      '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.es6',
+      '.html', '.htm', '.xhtml', '.shtml',
+      '.css', '.scss', '.sass', '.less', '.styl', '.stylus',
+      '.vue', '.svelte', '.astro',
+      // Systems Programming
+      '.c', '.cpp', '.cc', '.cxx', '.c++', '.h', '.hpp', '.hxx', '.hh', '.h++',
+      '.rs', '.go', '.zig', '.v', '.nim',
+      '.asm', '.s', '.nasm',
       // Scripting
-      '.sh','.bash','.zsh','.fish','.ksh','.csh','.tcsh',
-      '.ps1','.psm1','.psd1',
-      '.bat','.cmd',
-      '.awk','.sed',
+      '.py', '.pyw', '.pyx', '.pyi',
+      '.rb', '.rake', '.gemspec',
+      '.lua', '.luau',
+      '.pl', '.pm', '.t', '.pod',
+      '.sh', '.bash', '.zsh', '.fish', '.ksh', '.csh',
+      '.ps1', '.psm1', '.psd1',
+      '.bat', '.cmd',
+      // JVM Languages
+      '.java', '.kt', '.kts', '.scala', '.groovy', '.gradle', '.clj', '.cljs',
+      // .NET
+      '.cs', '.csx', '.fs', '.fsx', '.vb',
       // Functional
-      '.ml','.mli','.mll','.mly',
-      '.hs','.lhs',
-      '.elm',
-      '.clj','.cljs','.cljc','.edn',
-      '.ex','.exs','.erl','.hrl',
-      '.lisp','.lsp','.cl','.el',
-      '.scm','.ss','.rkt',
-      // Systems
-      '.asm','.s','.nasm',
-      '.v','.sv','.vhd','.vhdl',
-      // Data Science
-      '.r','.rmd','.rnw',
-      '.jl',
-      '.ipynb',
-      '.m','.mat',
+      '.ml', '.mli', '.hs', '.lhs', '.elm', '.purs',
+      // Mobile
+      '.swift', '.m', '.mm', '.dart', '.kt',
       // Web Assembly
-      '.wasm','.wat',
+      '.wat', '.wasm',
       // Config & Data
-      '.json','.json5','.jsonc',
-      '.yaml','.yml',
-      '.toml',
-      '.xml','.xsl','.xsd',
-      '.ini','.cfg','.conf','.config',
-      '.env','.envrc',
-      '.properties',
-      '.lock',
-      // Build & Package
-      '.cmake','.make','.mk','.makefile',
-      '.gradle','.maven','.pom',
-      '.bazel','.bzl',
-      '.ninja',
-      // Documentation
-      '.md','.mdx','.markdown',
-      '.txt','.text',
-      '.rst','.rest',
-      '.adoc','.asciidoc',
-      '.tex','.latex',
-      // Database
-      '.sql','.psql','.mysql','.pgsql',
-      '.cql',
-      '.cypher',
+      '.json', '.json5', '.jsonc', '.yaml', '.yml', '.toml', '.xml', '.ini', '.conf', '.config',
+      '.env', '.properties', '.cfg', '.editorconfig',
+      // Markup & Docs
+      '.md', '.mdx', '.markdown', '.txt', '.rst', '.adoc', '.tex',
+      // Database & Query
+      '.sql', '.psql', '.mysql', '.pgsql', '.plsql',
+      '.graphql', '.gql',
       // API & Schema
-      '.graphql','.gql',
-      '.proto','.protobuf',
-      '.thrift',
-      '.avro',
-      '.wsdl',
+      '.proto', '.thrift', '.avro', '.avsc',
       // Other Languages
-      '.lua',
-      '.vim','.vimrc',
-      '.pl','.pm','.perl',
+      '.php', '.phps', '.phtml',
+      '.ex', '.exs', '.eex', '.leex',
+      '.erl', '.hrl',
+      '.r', '.rmd',
+      '.jl',
+      '.sol', '.cairo',
+      '.vim', '.vimrc',
+      '.lisp', '.cl', '.el',
+      '.scm', '.ss',
       '.tcl',
-      '.d',
-      '.nim',
-      '.zig',
-      '.odin',
-      '.v',
-      '.cr',
-      '.pas','.pp',
-      '.ada','.adb','.ads',
-      '.f','.f90','.f95','.f03',
-      '.cob','.cbl',
-      // Markup & Templates
-      '.pug','.jade',
-      '.ejs',
-      '.hbs','.handlebars',
-      '.mustache',
-      '.twig',
-      '.njk','.nunjucks',
-      // Misc
-      '.dockerfile','.containerfile',
-      '.gitignore','.gitattributes',
-      '.editorconfig',
-      '.prettierrc','.eslintrc',
-      '.babelrc',
+      '.awk',
+      '.sed',
+      '.makefile', '.mk',
+      '.cmake',
+      '.dockerfile',
+      '.tf', '.tfvars',
+      '.hcl'
     ])
     
-    const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5MB max per file
+    const MAX_FILE_SIZE = 500 * 1024  // 500KB max per file
 
     let result = []
     
@@ -242,8 +184,6 @@ export class WorkspaceIndexer {
     
     for (const entry of entries) {
       if (this.status === 'aborted') return result
-      if (!entry || !entry.name) continue
-      
       const name = entry.name
       
       if (entry.type === 'directory' || entry.type === 'dir') {
@@ -252,26 +192,13 @@ export class WorkspaceIndexer {
           result = result.concat(children)
         }
       } else {
-        const ext = name && name.includes('.') ? '.' + name.split('.').pop().toLowerCase() : ''
-        const fullName = name.toLowerCase()
-        
-        // Check if it's a code file by extension or special filename
-        const isCodeFile = CODE_EXT.has(ext) || 
-                          fullName === 'makefile' || 
-                          fullName === 'dockerfile' || 
-                          fullName === 'rakefile' ||
-                          fullName === 'gemfile' ||
-                          fullName === 'podfile' ||
-                          fullName === 'vagrantfile' ||
-                          fullName === 'cmakelists.txt'
-        
-        if (isCodeFile) {
+        const ext = (name && name.includes('.')) ? '.' + name.split('.').pop().toLowerCase() : ''
+        // Only index whitelisted code file extensions
+        if (CODE_EXTENSIONS.has(ext)) {
           // Check file size
           const info = await window.electron.getFileInfo(entry.path).catch(() => null)
           if (info && info.success && info.size < MAX_FILE_SIZE) {
             result.push(entry.path)
-          } else if (info && info.success) {
-            console.log('[Indexer] Skipping large file:', entry.path, `(${Math.round(info.size / 1024)}KB)`)
           }
         }
       }
@@ -284,12 +211,12 @@ export class WorkspaceIndexer {
       if (!filePath || typeof filePath !== 'string') return
       
       const result = await window.electron.readFile(filePath)
-      if (!result || result.error || !result.success || result.content === null || result.content === undefined) return
+      if (result.error || !result.success) return
 
       const content = result.content || ''
       const lines = content.split('\n')
       const name = filePath.split(/[\\/]/).pop() || 'unknown'
-      const ext = name && name.includes('.') ? '.' + name.split('.').pop().toLowerCase() : ''
+      const ext = name.includes('.') ? '.' + name.split('.').pop().toLowerCase() : ''
       const dir = filePath
         .replace(workspacePath, '')
         .split(/[\\/]/)
@@ -352,7 +279,7 @@ export class WorkspaceIndexer {
       .map(file => {
         let score = 0
         // filename match = high score
-        if (file.name && typeof file.name === 'string' && file.name.toLowerCase().includes(q)) score += 10
+        if (file.name && file.name.toLowerCase().includes(q)) score += 10
         // symbol match = high score
         if (file.symbols && Array.isArray(file.symbols)) {
           file.symbols.forEach(s => {
@@ -361,8 +288,8 @@ export class WorkspaceIndexer {
         }
         // word matches in preview
         words.forEach(w => {
-          if (file.preview && typeof file.preview === 'string' && file.preview.toLowerCase().includes(w)) score += 1
-          if (file.dir && typeof file.dir === 'string' && file.dir.toLowerCase().includes(w)) score += 2
+          if (file.preview && file.preview.toLowerCase().includes(w)) score += 1
+          if (file.dir && file.dir.toLowerCase().includes(w)) score += 2
         })
         return { file, score }
       })
@@ -385,7 +312,7 @@ export class WorkspaceIndexer {
     })
 
     // Top symbols across codebase
-    const allSymbols = [...new Set(this.index.flatMap(f => f && f.symbols && Array.isArray(f.symbols) ? f.symbols : []))].slice(0, 100)
+    const allSymbols = [...new Set(this.index.flatMap(f => (f && f.symbols) ? f.symbols : []))].slice(0, 100)
 
     // File type breakdown
     const extCounts = {}
@@ -418,11 +345,9 @@ export class WorkspaceIndexer {
     const results = this.search(query, 5)
     if (results.length === 0) return null
 
-    return 'RELEVANT FILES FROM INDEX:\n' + results.map(f => {
-      if (!f || !f.path) return ''
-      const symbols = f.symbols && Array.isArray(f.symbols) ? f.symbols.slice(0,5).join(', ') : 'none'
-      return `• ${f.path} (${f.lines || 0} lines) — symbols: ${symbols}`
-    }).filter(Boolean).join('\n')
+    return 'RELEVANT FILES FROM INDEX:\n' + results.map(f =>
+      `• ${f.path || 'unknown'} (${f.lines || 0} lines) — symbols: ${(f.symbols && f.symbols.length > 0) ? f.symbols.slice(0,5).join(', ') : 'none'}`
+    ).join('\n')
   }
 
   saveToStorage() {

@@ -91,9 +91,11 @@ Do not attempt to use file tools without a workspace.
 AVAILABLE TOOLS:
 • read_file(path) — Read any file in the workspace
 • write_file(path, content) — Create or overwrite files
-• list_directory(path) — Explore project structure
-• run_command(command, cwd?) — Execute shell commands (requires user permission)
+• list_directory(path) — Explore project structure (use sparingly, prefer search_index)
+• search_index(query, limit?) — Search indexed files by name, path, symbols, or content (FAST - use this first!)
+• get_index_summary() — Get complete workspace overview with file types and structure (use this to understand the project)
 • search_files(query, dir?) — Full-text search across codebase
+• run_command(command, cwd?) — Execute shell commands (requires user permission)
 
 IMPORTANT: Before using run_command, you MUST ask the user for permission. The user will be prompted to:
 1. Allow Once - Execute this command one time
@@ -116,13 +118,19 @@ For specific file questions or targeted tasks, proceed immediately without menti
 ` : indexerStatus === 'ready' ? `
 ✅ The workspace index is ready with ${indexFileCount} files.
 
+IMPORTANT: Use the index tools to explore the codebase efficiently!
+- Use get_index_summary() FIRST to understand the project structure
+- Use search_index(query) to find specific files, symbols, or keywords
+- Only use list_directory() if you need to see a specific folder's contents
+- The index is much faster than manually listing directories
+
 You have instant access to:
 - Complete project structure and file organization
 - All file types and their distribution
 - Key symbols (functions, classes, exports) across the codebase
 - Fast semantic search for relevant files
 
-Use this context to provide informed answers about the codebase architecture and suggest relevant files to explore.
+When the user asks "check indexed stuff" or "explore the workspace", use get_index_summary() to show them what's indexed.
 ` : indexerStatus === 'error' ? `
 ❌ Workspace indexing encountered an error.
 
@@ -220,17 +228,22 @@ You are a professional development partner. Be efficient, accurate, and reliable
   // Get custom instructions first
   const customInstructions = systemPrompts[selectedModelId] || '';
   
-  // Inject index summary if available
+  // Always inject index summary if available - this gives AI instant access to workspace structure
   const indexSummary = indexer.getIndexSummary();
+  
+  let finalPrompt = basePrompt;
+  
+  // Add index summary (no API call needed - it's already in memory)
   if (indexSummary) {
-    return customInstructions
-      ? `${basePrompt}\n\n${indexSummary}\n\n─── CUSTOM INSTRUCTIONS ───────────────────────────────────────\n${customInstructions}`
-      : `${basePrompt}\n\n${indexSummary}`;
+    finalPrompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${indexSummary}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
   }
-
-  return customInstructions
-    ? `${basePrompt}\n\n─── CUSTOM INSTRUCTIONS ───────────────────────────────────────\n${customInstructions}`
-    : basePrompt;
+  
+  // Add custom instructions if present
+  if (customInstructions) {
+    finalPrompt += `\n\n─── CUSTOM INSTRUCTIONS ───────────────────────────────────────\n${customInstructions}`;
+  }
+  
+  return finalPrompt;
 }
 
 /**
@@ -333,6 +346,27 @@ const TOOLS = [
         required: ['query']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_index',
+      description: 'Search the workspace index for files by name, path, symbols, or content. Much faster than list_directory for finding specific files. The full workspace index is already provided in your system prompt.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query (filename, symbol name, or keyword)'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results to return (default: 20)'
+          }
+        },
+        required: ['query']
+      }
+    }
   }
 ];
 
@@ -353,11 +387,15 @@ async function executeTool(toolName, args, workspacePath) {
       const fullPath = workspacePath 
         ? joinPath(workspacePath, args.path)
         : args.path;
+      console.log('[Agent] read_file called for:', fullPath);
       const result = await window.electron.readFile(fullPath);
-      if (result.success) {
+      console.log('[Agent] read_file result:', { success: result?.success, hasContent: result?.content !== null && result?.content !== undefined, error: result?.error });
+      if (result.success && result.content !== null && result.content !== undefined) {
         return result.content;
       } else {
-        return `Error reading file: ${result.error}`;
+        const errorMsg = `Error reading file: ${result.error || 'File content is empty or null'}`;
+        console.error('[Agent]', errorMsg, 'Path:', fullPath);
+        return errorMsg;
       }
     }
     
@@ -369,7 +407,7 @@ async function executeTool(toolName, args, workspacePath) {
       // Read original content before writing
       const existsResult = await window.electron.readFile(fullPath);
       const fileType = existsResult.success ? 'modified' : 'added';
-      const originalContent = existsResult.success ? existsResult.content : '';
+      const originalContent = (existsResult.success && existsResult.content !== null && existsResult.content !== undefined) ? existsResult.content : '';
       
       const result = await window.electron.writeFile(fullPath, args.content);
       if (result.success) {
@@ -446,6 +484,17 @@ async function executeTool(toolName, args, workspacePath) {
       }
     }
     
+    case 'search_index': {
+      const limit = args.limit || 20;
+      const results = indexer.search(args.query, limit);
+      if (results.length === 0) {
+        return `No files found matching "${args.query}"`;
+      }
+      return results.map(f => 
+        `${f.path}\n  Type: ${f.ext} | Lines: ${f.lines} | Symbols: ${f.symbols.slice(0, 5).join(', ') || 'none'}`
+      ).join('\n\n');
+    }
+    
     default:
       return `Unknown tool: ${toolName}`;
   }
@@ -483,23 +532,25 @@ async function consumeStream(response, onToken, onThinkingToken, alreadyStartedT
         
         try {
           const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta;
+          const delta = parsed?.choices?.[0]?.delta;
+          
+          if (!delta) continue;
           
           // Method 1: reasoning_content field (OpenAI-compatible)
-          if (delta?.reasoning_content) {
+          if (delta.reasoning_content) {
             fullThinking += delta.reasoning_content;
             if (onThinkingToken) onThinkingToken(delta.reasoning_content);
           }
           
           // Method 2: thinking delta type (Anthropic-style via proxy)
-          if (delta?.type === 'thinking' || delta?.thinking) {
+          if (delta.type === 'thinking' || delta.thinking) {
             const thinkingText = delta.thinking || '';
             fullThinking += thinkingText;
             if (onThinkingToken) onThinkingToken(thinkingText);
           }
           
           // Method 3: <think> tags inside content - parse character by character
-          if (delta?.content) {
+          if (delta.content) {
             const chunk = delta.content;
             
             for (let i = 0; i < chunk.length; i++) {
@@ -559,9 +610,12 @@ async function consumeStream(response, onToken, onThinkingToken, alreadyStartedT
           }
           
           // Handle tool calls - accumulate by index
-          if (delta?.tool_calls) {
+          if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
+              if (!tc) continue;
               const idx = tc.index;
+              if (idx === undefined || idx === null) continue;
+              
               if (!toolCallMap[idx]) {
                 toolCallMap[idx] = {
                   id: '',
@@ -627,7 +681,7 @@ export async function runAgentTurn({
         if (ctx.type === 'file' && ctx.data) {
           try {
             const result = await window.electron.readFile(ctx.data);
-            if (result.success) {
+            if (result && result.success && result.content !== null && result.content !== undefined) {
               const fileName = ctx.data.split(/[\\/]/).pop();
               contextContent += `\n\n<attached_file path="${ctx.data}">\n${result.content}\n</attached_file>`;
             }
@@ -640,27 +694,27 @@ export async function runAgentTurn({
       if (contextContent) {
         return {
           role: 'user',
-          content: msg.content + contextContent
+          content: (msg.content || '') + contextContent
         };
       }
     }
     
     return {
       role: msg.role,
-      content: msg.content
+      content: msg.content || ''
     };
   }));
   
   // Add currently open file as context to the first user message
   if (activeFile && activeFileContent && processedMessages.length > 0) {
     const firstUserMsgIndex = processedMessages.findIndex(m => m.role === 'user');
-    if (firstUserMsgIndex !== -1) {
+    if (firstUserMsgIndex !== -1 && processedMessages[firstUserMsgIndex]) {
       const fileName = activeFile.split(/[\\/]/).pop();
       const openFileContext = `\n\n<currently_open_file path="${activeFile}">\n${activeFileContent}\n</currently_open_file>`;
       
       processedMessages[firstUserMsgIndex] = {
         ...processedMessages[firstUserMsgIndex],
-        content: processedMessages[firstUserMsgIndex].content + openFileContext
+        content: (processedMessages[firstUserMsgIndex].content || '') + openFileContext
       };
     }
   }
@@ -670,10 +724,10 @@ export async function runAgentTurn({
   const relevantContext = indexer.getRelevantContext(lastUserMsg);
   if (relevantContext && processedMessages.length > 0) {
     const lastUserMsgIndex = processedMessages.length - 1;
-    if (processedMessages[lastUserMsgIndex].role === 'user') {
+    if (processedMessages[lastUserMsgIndex] && processedMessages[lastUserMsgIndex].role === 'user') {
       processedMessages[lastUserMsgIndex] = {
         ...processedMessages[lastUserMsgIndex],
-        content: relevantContext + '\n\n' + processedMessages[lastUserMsgIndex].content
+        content: relevantContext + '\n\n' + (processedMessages[lastUserMsgIndex].content || '')
       };
     }
   }
@@ -737,7 +791,7 @@ export async function runAgentTurn({
       // Add assistant message to loop
       loopMessages.push({
         role: 'assistant',
-        content: message.content,
+        content: message.content || '',
         tool_calls: message.tool_calls
       });
       
