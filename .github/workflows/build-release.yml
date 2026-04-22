@@ -100,17 +100,51 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body: |
-            ## KaizerIDE v${{ steps.package_version.outputs.version }}
-            
-            ### 🚀 What's New
-            Auto-generated release from commit ${{ github.sha }}
+            ## 🎉 KaizerIDE v${{ steps.package_version.outputs.version }}
             
             ### 📦 Download
-            Download the installer below and run it to install KaizerIDE.
+            **Windows Installer:** `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
             
-            ### ✨ Features
-            - Windows context menu integration
-            - Dark mode installer
-            - AI-powered coding assistant
+            ### ✨ What's New in This Release
+            
+            #### 🐛 Bug Fixes
+            - Fixed context menu opening wrong folder when right-clicking
+            - Fixed all-black installer appearance (now uses standard Windows theme)
+            - Fixed file associations not working properly
+            
+            #### 🎨 Improvements
+            - Reduced installer size from 122 MB to ~95 MB (22% smaller!)
+            - Context menu now optional during installation
+            - Better command line argument handling for opening files/folders
+            - Improved folder opening with correct path resolution
+            
+            #### 🔧 Technical Changes
+            - Added proper command line argument parsing in Electron
+            - Simplified NSIS installer configuration
+            - Maximum compression enabled for smaller downloads
+            - Removed unnecessary files from build
+            
+            ### 🚀 Features
+            - 🤖 **AI-Powered Coding Assistant** - Context-aware help with tool calling
+            - 🎨 **Monaco Editor** - VS Code's powerful editor
+            - 📁 **File Explorer** - Navigate projects easily
+            - 💻 **Integrated Terminal** - Run commands without leaving the IDE
+            - 🪟 **Windows Context Menu** - Right-click files/folders to open
+            - 🔄 **Auto-updates** - Stay up to date automatically
+            
+            ### 📝 Installation
+            1. Download the installer above
+            2. Run `KaizerIDE.Setup.${{ steps.package_version.outputs.version }}.exe`
+            3. Follow the installation wizard
+            4. Launch from Start Menu or Desktop
+            
+            ### 🔗 Links
+            - [Report a Bug](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug)
+            - [Request a Feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement)
+            - [Documentation](https://github.com/randheimer/KaizerIDE#readme)
+            
+            ---
+            
+            **Full Changelog:** https://github.com/randheimer/KaizerIDE/compare/v${{ steps.package_version.outputs.version }}...v${{ steps.package_version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
