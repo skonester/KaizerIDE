@@ -9,6 +9,7 @@ import SettingsModal from './components/Modals/SettingsModal';
 import ErrorToast from './components/Common/ErrorToast';
 import FilePicker from './components/Common/FilePicker';
 import HelpModal from './components/UI/HelpModal';
+import { indexer } from './lib/indexer';
 import './App.css';
 
 const DEFAULT_SETTINGS = {
@@ -173,6 +174,20 @@ function App() {
     loadWorkspace();
   }, []);
 
+  // Trigger indexing when workspace changes
+  useEffect(() => {
+    if (!workspacePath) return;
+    
+    console.log('[App] Workspace changed, checking index cache...');
+    const cached = indexer.loadFromStorage(workspacePath);
+    if (!cached) {
+      console.log('[App] No cache found, starting indexing...');
+      indexer.startIndexing(workspacePath);
+    } else {
+      console.log('[App] Loaded index from cache');
+    }
+  }, [workspacePath]);
+
   // Handle context menu integration - consolidated single listener
   useEffect(() => {
     let cleanupCallback = null;
@@ -317,6 +332,20 @@ function App() {
       setTerminalVisible(true);
     };
 
+    const handleOpenSettings = (event) => {
+      const { tab } = event.detail || {};
+      setShowSettings(true);
+      if (tab) {
+        // Store the tab to open in a ref or state that SettingsModal can read
+        setTimeout(() => {
+          setShowSettings(false);
+          setTimeout(() => {
+            setShowSettings(tab);
+          }, 50);
+        }, 0);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
@@ -324,6 +353,7 @@ function App() {
     window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
     window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
     window.addEventListener('kaizer:new-terminal', handleNewTerminal);
+    window.addEventListener('kaizer:open-settings', handleOpenSettings);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
@@ -332,6 +362,7 @@ function App() {
       window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
       window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
       window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
+      window.removeEventListener('kaizer:open-settings', handleOpenSettings);
     };
   }, [activeTabPath, tabs, workspacePath]);
 
@@ -541,6 +572,7 @@ function App() {
           settings={settings}
           onSave={handleSettingsSave}
           onClose={() => setShowSettings(false)}
+          initialTab={typeof showSettings === 'string' ? showSettings : undefined}
         />
       )}
       {errorMessage && (

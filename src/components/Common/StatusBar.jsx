@@ -1,7 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { indexer } from '../../lib/indexer';
 import './StatusBar.css';
 
 function StatusBar({ activeFile, modelName, endpoint }) {
+  const [indexStatus, setIndexStatus] = useState(() => ({
+    status: indexer.status,
+    progress: indexer.progress,
+    fileCount: indexer.index.length,
+    enabled: indexer.enabled
+  }));
+
+  useEffect(() => {
+    return indexer.subscribe(setIndexStatus);
+  }, []);
+
   const getEndpointHost = (url) => {
     try {
       const urlObj = new URL(url);
@@ -9,6 +21,49 @@ function StatusBar({ activeFile, modelName, endpoint }) {
     } catch {
       return url;
     }
+  };
+
+  const handleIndexerClick = () => {
+    window.dispatchEvent(new CustomEvent('kaizer:open-settings', { detail: { tab: 'indexer' } }));
+  };
+
+  const getIndexerIndicator = () => {
+    if (!indexStatus.enabled) return null;
+
+    if (indexStatus.status === 'indexing') {
+      return (
+        <div className="status-indexer indexing" onClick={handleIndexerClick} title={`Indexing workspace... ${indexStatus.progress}%`}>
+          <span className="indexer-dot pulsing"></span>
+          <span className="indexer-text">Indexing {indexStatus.progress}%</span>
+        </div>
+      );
+    }
+
+    if (indexStatus.status === 'ready') {
+      return (
+        <div className="status-indexer ready" onClick={handleIndexerClick} title={`Index ready — ${indexStatus.fileCount} files`}>
+          <span className="indexer-dot"></span>
+        </div>
+      );
+    }
+
+    if (indexStatus.status === 'error') {
+      return (
+        <div className="status-indexer error" onClick={handleIndexerClick} title="Indexing failed">
+          <span className="indexer-dot"></span>
+        </div>
+      );
+    }
+
+    if (indexStatus.status === 'idle') {
+      return (
+        <div className="status-indexer idle" onClick={handleIndexerClick} title="Not indexed">
+          <span className="indexer-dot"></span>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -19,6 +74,9 @@ function StatusBar({ activeFile, modelName, endpoint }) {
         ) : (
           <span className="status-file status-empty">No file open</span>
         )}
+      </div>
+      <div className="status-right">
+        {getIndexerIndicator()}
       </div>
     </div>
   );

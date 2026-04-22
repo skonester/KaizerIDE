@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { indexer } from '../../lib/indexer';
 import './SettingsModal.css';
 
-function SettingsModal({ settings, onSave, onClose }) {
-  const [activeTab, setActiveTab] = useState('general');
+function SettingsModal({ settings, onSave, onClose, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'general');
   const [localSettings, setLocalSettings] = useState(settings);
   const [showApiKey, setShowApiKey] = useState(false);
+  
+  // Indexer status state
+  const [indexStatus, setIndexStatus] = useState(() => ({
+    status: indexer.status,
+    progress: indexer.progress,
+    totalFiles: indexer.totalFiles,
+    indexedFiles: indexer.indexedFiles,
+    enabled: indexer.enabled,
+    fileCount: indexer.index.length,
+    workspacePath: indexer.workspacePath
+  }));
+
+  useEffect(() => {
+    return indexer.subscribe(setIndexStatus);
+  }, []);
   
   // Editor settings state
   const [editorSettings, setEditorSettings] = useState(() => {
@@ -119,6 +135,12 @@ function SettingsModal({ settings, onSave, onClose }) {
             onClick={() => setActiveTab('models')}
           >
             AI Models
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'indexer' ? 'active' : ''}`}
+            onClick={() => setActiveTab('indexer')}
+          >
+            Indexer
           </button>
         </div>
 
@@ -444,6 +466,163 @@ function SettingsModal({ settings, onSave, onClose }) {
               <button className="save-btn" onClick={handleSaveModels}>
                 Save AI Models
               </button>
+            </div>
+          )}
+
+          {activeTab === 'indexer' && (
+            <div className="settings-panel">
+              <div className="setting-group">
+                <label>Workspace Indexer</label>
+                <span className="setting-description">Indexes your codebase locally so the AI has instant context awareness. No data leaves your machine.</span>
+              </div>
+
+              <div className="setting-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={indexStatus.enabled}
+                    onChange={(e) => indexer.setEnabled(e.target.checked)}
+                  />
+                  Enable workspace indexing
+                </label>
+                <span className="setting-description">When enabled, KaizerIDE will automatically index your workspace files</span>
+              </div>
+
+              {!indexStatus.enabled && (
+                <div style={{ padding: '12px', background: 'var(--bg-2)', borderRadius: '6px', fontSize: '12px', color: 'var(--text-2)' }}>
+                  Indexing is disabled. AI will use tools to explore files on demand.
+                </div>
+              )}
+
+              {indexStatus.enabled && (
+                <>
+                  <div className="indexer-status-card">
+                    {indexStatus.status === 'idle' && (
+                      <>
+                        <div className="status-indicator">
+                          <span className="status-dot idle"></span>
+                          <span className="status-text">Not indexed yet</span>
+                        </div>
+                        <button 
+                          className="indexer-action-btn"
+                          onClick={() => indexStatus.workspacePath && indexer.startIndexing(indexStatus.workspacePath)}
+                          disabled={!indexStatus.workspacePath}
+                        >
+                          Start Indexing
+                        </button>
+                      </>
+                    )}
+
+                    {indexStatus.status === 'indexing' && (
+                      <>
+                        <div className="status-indicator">
+                          <span className="status-dot indexing"></span>
+                          <span className="status-text">Indexing workspace...</span>
+                        </div>
+                        <div className="progress-bar">
+                          <div className="progress-fill" style={{ width: `${indexStatus.progress}%` }}></div>
+                        </div>
+                        <div className="progress-text">
+                          {indexStatus.indexedFiles} / {indexStatus.totalFiles} files indexed ({indexStatus.progress}%)
+                        </div>
+                        <button 
+                          className="indexer-action-btn cancel"
+                          onClick={() => indexer.abort()}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+
+                    {indexStatus.status === 'ready' && (
+                      <>
+                        <div className="status-indicator">
+                          <span className="status-dot ready"></span>
+                          <span className="status-text">Index ready</span>
+                        </div>
+                        <div className="index-stats">
+                          <span className="stat-item">{indexStatus.fileCount} files</span>
+                          <span className="stat-separator">•</span>
+                          <span className="stat-item">Updated just now</span>
+                        </div>
+                        <button 
+                          className="indexer-action-btn"
+                          onClick={() => indexStatus.workspacePath && indexer.reindex(indexStatus.workspacePath)}
+                        >
+                          Re-index
+                        </button>
+                      </>
+                    )}
+
+                    {indexStatus.status === 'error' && (
+                      <>
+                        <div className="status-indicator">
+                          <span className="status-dot error"></span>
+                          <span className="status-text">Indexing failed</span>
+                        </div>
+                        <button 
+                          className="indexer-action-btn"
+                          onClick={() => indexStatus.workspacePath && indexer.startIndexing(indexStatus.workspacePath)}
+                        >
+                          Retry
+                        </button>
+                      </>
+                    )}
+
+                    {indexStatus.status === 'aborted' && (
+                      <>
+                        <div className="status-indicator">
+                          <span className="status-dot idle"></span>
+                          <span className="status-text">Indexing cancelled</span>
+                        </div>
+                        <button 
+                          className="indexer-action-btn"
+                          onClick={() => indexStatus.workspacePath && indexer.startIndexing(indexStatus.workspacePath)}
+                        >
+                          Start Indexing
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {indexStatus.status === 'ready' && indexStatus.fileCount > 0 && (
+                    <div className="file-type-breakdown">
+                      <label>File Types</label>
+                      <div className="file-type-badges">
+                        {(() => {
+                          const extCounts = {};
+                          indexer.index.forEach(f => {
+                            extCounts[f.ext] = (extCounts[f.ext] || 0) + 1;
+                          });
+                          return Object.entries(extCounts)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 8)
+                            .map(([ext, count]) => (
+                              <span key={ext} className="file-type-badge">
+                                {ext || 'none'}({count})
+                              </span>
+                            ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="indexer-note">
+                    <span className="note-text">Index is stored in localStorage and refreshed every hour.</span>
+                    <button 
+                      className="clear-index-btn"
+                      onClick={() => {
+                        if (confirm('Clear all cached indexes?')) {
+                          indexer.clearStorage();
+                          alert('Index cache cleared');
+                        }
+                      }}
+                    >
+                      Clear Index
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

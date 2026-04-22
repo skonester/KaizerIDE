@@ -16,7 +16,8 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
   const totalRemoved = files.reduce((sum, f) => sum + f.removedLines, 0);
   
   const getFileIcon = (name) => {
-    const ext = name.split('.').pop().toLowerCase();
+    if (!name || typeof name !== 'string') return '📄';
+    const ext = name.split('.').pop()?.toLowerCase();
     const iconMap = {
       'js': '📜', 'jsx': '⚛️', 'ts': '📘', 'tsx': '⚛️',
       'css': '🎨', 'html': '🌐', 'json': '📋',
@@ -59,7 +60,8 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
       {expanded && (
         <div className="files-changed-rows">
           {files.map((file, idx) => {
-            const dirPath = file.path.split(/[\\/]/).slice(0, -1).join('/');
+            const dirPath = file.path ? file.path.split(/[\\/]/).slice(0, -1).join('/') : '';
+            const fileName = file.name || (file.path ? file.path.split(/[\\/]/).pop() : 'unknown');
             const isNewFile = file.isNew || undoStack[file.path] === null;
             
             return (
@@ -70,8 +72,8 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
               >
                 <div className="files-changed-row-left">
                   {isNewFile && <span className="new-file-indicator">+</span>}
-                  <span className="files-changed-icon">{getFileIcon(file.name)}</span>
-                  <span className="files-changed-filename">{file.name}</span>
+                  <span className="files-changed-icon">{getFileIcon(fileName)}</span>
+                  <span className="files-changed-filename">{fileName}</span>
                   <span className="files-changed-dirpath">{dirPath}</span>
                 </div>
                 <div className="files-changed-row-right">
@@ -424,15 +426,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     const handleFileWritten = async (e) => {
       const { path, type, content, originalContent } = e.detail;
       
+      // Validate path
+      if (!path || typeof path !== 'string') {
+        console.warn('[ChatPanel] Invalid path in file-written event:', path);
+        return;
+      }
+      
       // Add or update file in filesChangedCard
       setFilesChangedCard(prev => {
-        const newLines = content.split('\n');
+        const newLines = content ? content.split('\n') : [];
         const oldLines = originalContent ? originalContent.split('\n') : [];
         
         let addedLines = newLines.length;
         let removedLines = oldLines.length;
         
-        const fileName = path.split(/[\\/]/).pop();
+        const fileName = path.split(/[\\/]/).pop() || 'unknown';
         
         const newFile = { 
           path, 

@@ -17,6 +17,12 @@
   gap: 8px;
 }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .status-file {
   font-family: var(--font-mono);
   max-width: 400px;
@@ -27,4 +33,58 @@
 
 .status-empty {
   opacity: 0.5;
+}
+
+.status-indexer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 80ms ease;
+}
+
+.status-indexer:hover {
+  background: var(--bg-hover);
+}
+
+.indexer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #666;
+}
+
+.status-indexer.indexing .indexer-dot {
+  background: var(--accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-indexer.ready .indexer-dot {
+  background: #22c55e;
+}
+
+.status-indexer.error .indexer-dot {
+  background: #ef4444;
+}
+
+.status-indexer.idle .indexer-dot {
+  background: #666;
+}
+
+.indexer-text {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
 }

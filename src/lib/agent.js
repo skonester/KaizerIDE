@@ -1,8 +1,10 @@
+import { indexer } from './indexer';
+
 /**
  * Maps raw model ID to a human-friendly name with provider
  */
 function formatModelName(modelId) {
-  if (!modelId) return 'an advanced language model';
+  if (!modelId || typeof modelId !== 'string') return 'an advanced language model';
   const id = modelId.toLowerCase();
   if (id.includes('claude'))   return 'Claude, developed by Anthropic';
   if (id.includes('gpt'))      return 'GPT, developed by OpenAI';
@@ -25,10 +27,31 @@ function buildSystemPrompt(workspacePath, selectedModelId, systemPrompts = {}) {
   const shellHint = platform === 'windows'
     ? 'Use Windows CMD syntax for commands (dir, del, move, rmdir /s /q, type)'
     : 'Use Unix shell syntax (ls, rm, mv, cat)';
-  const modelName = formatModelName(selectedModelId);
+  const modelName = formatModelName(selectedModelId || '');
 
   // Debug: log workspace path
   console.log('[Agent] Building system prompt with workspacePath:', workspacePath);
+
+  // Get indexer status
+  const indexerStatus = indexer.status;
+  const indexerEnabled = indexer.enabled;
+  const indexProgress = indexer.progress;
+  const indexFileCount = indexer.index.length;
+
+  let indexStatusMessage = '';
+  if (indexerEnabled) {
+    if (indexerStatus === 'indexing') {
+      indexStatusMessage = `\n- Workspace Indexer: ⏳ INDEXING IN PROGRESS (${indexProgress}% complete, ${indexer.indexedFiles}/${indexer.totalFiles} files)\n  ⚠️ For optimal codebase awareness, suggest waiting until indexing completes if the user asks complex questions about the entire project.`;
+    } else if (indexerStatus === 'ready') {
+      indexStatusMessage = `\n- Workspace Indexer: ✅ READY (${indexFileCount} files indexed)\n  You have instant access to the entire codebase structure, file types, and key symbols.`;
+    } else if (indexerStatus === 'error') {
+      indexStatusMessage = `\n- Workspace Indexer: ❌ ERROR\n  Indexing failed. You can still use file tools to explore the codebase manually.`;
+    } else {
+      indexStatusMessage = `\n- Workspace Indexer: ⏸️ NOT INDEXED\n  Indexing hasn't started yet. You can still use file tools to explore the codebase manually.`;
+    }
+  } else {
+    indexStatusMessage = `\n- Workspace Indexer: 🔕 DISABLED\n  User has disabled workspace indexing. Use file tools to explore the codebase manually.`;
+  }
 
   const basePrompt = `You are KaizerIDE — a professional AI coding assistant integrated directly into this development environment.
 
@@ -43,7 +66,7 @@ Never reveal specific model versions, API names, or technical identifiers. Keep 
 ENVIRONMENT:
 - Platform: ${platform}
 - Shell: ${shellHint}
-- Workspace: ${workspacePath ? `"${workspaceName}" at ${workspacePath}` : '⚠️ NO WORKSPACE OPEN'}
+- Workspace: ${workspacePath ? `"${workspaceName}" at ${workspacePath}` : '⚠️ NO WORKSPACE OPEN'}${indexStatusMessage}
 
 ${!workspacePath ? `
 ⚠️ CRITICAL: NO WORKSPACE IS CURRENTLY OPEN
@@ -78,6 +101,41 @@ IMPORTANT: Before using run_command, you MUST ask the user for permission. The u
 3. Deny - Cancel the command
 
 Never execute commands without explicit user approval.
+
+WORKSPACE INDEXING AWARENESS:
+${indexerStatus === 'indexing' ? `
+⏳ The workspace is currently being indexed (${indexProgress}% complete).
+
+When the user asks complex questions about the entire codebase (e.g., "what does this project do?", "find all API endpoints", "show me the architecture"), you should:
+1. Acknowledge that indexing is in progress
+2. Offer to answer now with limited context (using file tools)
+3. Suggest waiting ${indexProgress < 50 ? 'a few moments' : 'just a bit longer'} for complete results
+4. Example: "I can help with that! The workspace is currently being indexed (${indexProgress}% complete). I can start exploring now using file tools, or if you'd prefer more comprehensive results, we could wait ${indexProgress < 50 ? 'about a minute' : 'just a moment'} for indexing to finish. What would you prefer?"
+
+For specific file questions or targeted tasks, proceed immediately without mentioning indexing.
+` : indexerStatus === 'ready' ? `
+✅ The workspace index is ready with ${indexFileCount} files.
+
+You have instant access to:
+- Complete project structure and file organization
+- All file types and their distribution
+- Key symbols (functions, classes, exports) across the codebase
+- Fast semantic search for relevant files
+
+Use this context to provide informed answers about the codebase architecture and suggest relevant files to explore.
+` : indexerStatus === 'error' ? `
+❌ Workspace indexing encountered an error.
+
+Fall back to using file tools (read_file, list_directory, search_files) to explore the codebase manually. You can still provide excellent assistance, it will just require more tool calls.
+` : indexerEnabled ? `
+⏸️ Workspace indexing hasn't started yet.
+
+Use file tools to explore the codebase. If the user asks broad questions about the project, you can suggest they wait for indexing to complete for better results, or proceed with manual exploration.
+` : `
+🔕 Workspace indexing is disabled by the user.
+
+Use file tools (read_file, list_directory, search_files) to explore the codebase manually. This is the user's preference, so don't suggest enabling indexing unless they specifically ask about it.
+`}
 
 THINKING PROCESS:
 Before responding to ANY message, always reason through it first using <think>...</think> tags.
@@ -159,7 +217,17 @@ For complex tasks, execute multi-step workflows:
 
 You are a professional development partner. Be efficient, accurate, and reliable.`;
 
+  // Get custom instructions first
   const customInstructions = systemPrompts[selectedModelId] || '';
+  
+  // Inject index summary if available
+  const indexSummary = indexer.getIndexSummary();
+  if (indexSummary) {
+    return customInstructions
+      ? `${basePrompt}\n\n${indexSummary}\n\n─── CUSTOM INSTRUCTIONS ───────────────────────────────────────\n${customInstructions}`
+      : `${basePrompt}\n\n${indexSummary}`;
+  }
+
   return customInstructions
     ? `${basePrompt}\n\n─── CUSTOM INSTRUCTIONS ───────────────────────────────────────\n${customInstructions}`
     : basePrompt;
@@ -593,6 +661,19 @@ export async function runAgentTurn({
       processedMessages[firstUserMsgIndex] = {
         ...processedMessages[firstUserMsgIndex],
         content: processedMessages[firstUserMsgIndex].content + openFileContext
+      };
+    }
+  }
+
+  // Get relevant context from index for the user's query
+  const lastUserMsg = processedMessages.filter(m => m.role === 'user').pop()?.content || '';
+  const relevantContext = indexer.getRelevantContext(lastUserMsg);
+  if (relevantContext && processedMessages.length > 0) {
+    const lastUserMsgIndex = processedMessages.length - 1;
+    if (processedMessages[lastUserMsgIndex].role === 'user') {
+      processedMessages[lastUserMsgIndex] = {
+        ...processedMessages[lastUserMsgIndex],
+        content: relevantContext + '\n\n' + processedMessages[lastUserMsgIndex].content
       };
     }
   }
