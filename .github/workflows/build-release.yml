@@ -62,6 +62,11 @@ jobs:
       - name: Install dependencies (fast)
         run: npm ci --prefer-offline --no-audit
       
+      - name: Convert PNG to ICO
+        run: |
+          npm install -g png-to-ico
+          png-to-ico images/logo.png --sizes 16,32,48,64,128,256 --out images/logo.ico
+      
       - name: Build Vite app (production)
         run: npm run build
         env:

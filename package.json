@@ -44,7 +44,7 @@
     ],
     "compression": "normal",
     "win": {
-      "icon": "images/logo.png",
+      "icon": "images/logo.ico",
       "target": [
         {
           "target": "nsis",
@@ -84,12 +84,12 @@
       "shortcutName": "KaizerIDE",
       "perMachine": true,
       "allowElevation": true,
-      "installerIcon": "images/logo.png",
-      "uninstallerIcon": "images/logo.png",
-      "installerHeader": "images/logo.png",
-      "installerSidebar": "images/logo.png",
-      "uninstallerSidebar": "images/logo.png",
-      "installerHeaderIcon": "images/logo.png",
+      "installerIcon": "images/logo.ico",
+      "uninstallerIcon": "images/logo.ico",
+      "installerHeader": "images/logo.ico",
+      "installerSidebar": "images/logo.ico",
+      "uninstallerSidebar": "images/logo.ico",
+      "installerHeaderIcon": "images/logo.ico",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "menuCategory": true,
