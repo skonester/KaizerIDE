@@ -290,15 +290,38 @@ function App() {
       setActiveTabPath(previewPath);
     };
 
+    const handleOpenIncludeFile = async (event) => {
+      const { path, originalPath } = event.detail;
+      
+      // Try to resolve the path relative to the current file's directory
+      const currentDir = originalPath.substring(0, originalPath.lastIndexOf('\\'));
+      let targetPath = path;
+      
+      // If path doesn't start with drive letter, make it relative to current directory
+      if (!path.match(/^[A-Z]:\\/)) {
+        targetPath = `${currentDir}\\${path}`;
+      }
+      
+      // Check if file exists and open it
+      const info = await window.electron.getFileInfo(targetPath);
+      if (info && !info.isDirectory) {
+        await handleFileOpen(targetPath);
+      } else {
+        setErrorMessage(`Could not find include file: ${path}`);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
     window.addEventListener('kaizer:open-preview', handleOpenPreview);
+    window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:open-filepicker', handleOpenFilePicker);
       window.removeEventListener('kaizer:open-preview', handleOpenPreview);
+      window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
     };
   }, [activeTabPath, tabs, workspacePath]);
 

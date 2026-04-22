@@ -641,6 +641,55 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       releaseDocumentSemanticTokens: () => {}
     });
 
+    // Register definition provider for C/C++ #include statements
+    const registerIncludeDefinitionProvider = (languageId) => {
+      monaco.languages.registerDefinitionProvider(languageId, {
+        provideDefinition: async (model, position) => {
+          const line = model.getLineContent(position.lineNumber);
+          const includeMatch = line.match(/#include\s+["<]([^">]+)[">]/);
+          
+          if (!includeMatch) return null;
+          
+          const includedFile = includeMatch[1];
+          const currentFilePath = model.uri.path;
+          const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+          
+          // Try to resolve the file path
+          let targetPath;
+          
+          if (line.includes('"')) {
+            // Local include with quotes - look in same directory
+            targetPath = `${currentDir}/${includedFile}`;
+          } else {
+            // System include with <> - try current directory first, then common paths
+            targetPath = `${currentDir}/${includedFile}`;
+          }
+          
+          // Convert to Windows path format
+          targetPath = targetPath.replace(/\//g, '\\');
+          
+          // Check if cursor is on the filename
+          const startIdx = line.indexOf(includedFile);
+          const endIdx = startIdx + includedFile.length;
+          const cursorIdx = position.column - 1;
+          
+          if (cursorIdx >= startIdx && cursorIdx <= endIdx) {
+            // Dispatch event to open the file
+            window.dispatchEvent(new CustomEvent('kaizer:open-include-file', {
+              detail: { path: targetPath, originalPath: currentFilePath }
+            }));
+            
+            return null; // Return null since we're handling it via event
+          }
+          
+          return null;
+        }
+      });
+    };
+    
+    registerIncludeDefinitionProvider('cpp');
+    registerIncludeDefinitionProvider('c');
+
     // Set theme
     monaco.editor.setTheme('kaizer-dark');
 
