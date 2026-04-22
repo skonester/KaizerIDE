@@ -62,10 +62,13 @@ jobs:
       - name: Install dependencies (fast)
         run: npm ci --prefer-offline --no-audit
       
+      - name: Install icon conversion tools
+        run: npm install sharp png-to-ico
+      
       - name: Convert PNG to ICO
         run: |
-          npm install -g png-to-ico
-          png-to-ico images/logo.png --sizes 16,32,48,64,128,256 --out images/logo.ico
+          node -e "const sharp = require('sharp'); const fs = require('fs'); const pngToIco = require('png-to-ico'); sharp('images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('images/logo-square.png').then(() => pngToIco(['images/logo-square.png'])).then(buf => { fs.writeFileSync('images/logo.ico', buf); console.log('ICO created successfully'); }).catch(console.error);"
+        shell: pwsh
       
       - name: Build Vite app (production)
         run: npm run build
