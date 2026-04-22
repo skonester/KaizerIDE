@@ -42,7 +42,7 @@
       "package.json"
     ],
     "win": {
-      "icon": "build/logo.png",
+      "icon": "images/logo.png",
       "target": [
         {
           "target": "nsis",
