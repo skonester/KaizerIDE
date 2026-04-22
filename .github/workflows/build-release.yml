@@ -62,12 +62,12 @@ jobs:
       - name: Install dependencies (fast)
         run: npm ci --prefer-offline --no-audit
       
-      - name: Install icon conversion tools
+      - name: Install icon deps
         run: npm install sharp png-to-ico
       
       - name: Convert PNG to ICO
         run: |
-          node -e "const sharp = require('sharp'); const fs = require('fs'); const pngToIco = require('png-to-ico'); sharp('images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('images/logo-square.png').then(() => pngToIco(['images/logo-square.png'])).then(buf => { fs.writeFileSync('images/logo.ico', buf); console.log('ICO created successfully'); }).catch(console.error);"
+          node -e "const sharp = require('sharp'); const fs = require('fs'); async function convert() { await sharp('images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('images/logo-256.png'); const { default: pngToIco } = await import('png-to-ico'); const buf = await pngToIco(['images/logo-256.png']); fs.writeFileSync('images/logo.ico', buf); console.log('ICO created:', buf.length, 'bytes'); } convert().catch(e => { console.error(e); process.exit(1); });"
         shell: pwsh
       
       - name: Build Vite app (production)
