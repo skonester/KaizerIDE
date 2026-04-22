@@ -85,8 +85,6 @@ Download the latest version from the [Releases](https://github.com/randheimer/Ka
 
 ## 💻 Development
 
-## 💻 Development
-
 ### Prerequisites
 - Node.js 20+
 - npm
