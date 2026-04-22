@@ -1,22 +1,40 @@
 # KaizerIDE
 
-A modern desktop IDE built with Electron, React, and Monaco Editor.
+<p align="center">
+  <img src="build/icon.png" alt="KaizerIDE Logo" width="200"/>
+</p>
 
-[![GitHub release](https://img.shields.io/github/v/release/randheimer/KaizerIDE)](https://github.com/randheimer/KaizerIDE/releases)
-[![GitHub downloads](https://img.shields.io/github/downloads/randheimer/KaizerIDE/total)](https://github.com/randheimer/KaizerIDE/releases)
-[![GitHub stars](https://img.shields.io/github/stars/randheimer/KaizerIDE)](https://github.com/randheimer/KaizerIDE/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/randheimer/KaizerIDE)](https://github.com/randheimer/KaizerIDE/issues)
-[![GitHub license](https://img.shields.io/github/license/randheimer/KaizerIDE)](https://github.com/randheimer/KaizerIDE/blob/main/LICENSE)
+<p align="center">A modern desktop IDE built with Electron, React, and Monaco Editor.</p>
+
+<p align="center">
+  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/v/release/randheimer/KaizerIDE" alt="GitHub release"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/downloads/randheimer/KaizerIDE/total" alt="GitHub downloads"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/stargazers"><img src="https://img.shields.io/github/stars/randheimer/KaizerIDE" alt="GitHub stars"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/issues"><img src="https://img.shields.io/github/issues/randheimer/KaizerIDE" alt="GitHub issues"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/github/license/randheimer/KaizerIDE" alt="GitHub license"></a>
+</p>
 
 ## Features
 
 - 🎨 Modern, intuitive user interface
 - 📝 Monaco Editor integration (VS Code's editor)
-- 🤖 AI-powered chat assistant
+- 🤖 AI-powered chat assistant (requires local OpenAI-compatible API endpoint)
 - 📁 File explorer and project management
 - 🔍 Advanced search capabilities
 - 💻 Integrated terminal
 - ⚡ Fast and responsive
+
+## Requirements
+
+### AI Chat Assistant
+
+The AI chat feature requires a local OpenAI-compatible API endpoint. Supported options:
+- [Ollama](https://ollama.ai/) with OpenAI compatibility
+- [LM Studio](https://lmstudio.ai/)
+- [LocalAI](https://localai.io/)
+- Any other OpenAI-compatible API server
+
+Configure your API endpoint in the settings after installation.
 
 ## Download
 
