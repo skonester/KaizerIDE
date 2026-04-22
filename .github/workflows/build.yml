@@ -32,5 +32,8 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: windows-build
-        path: release/*.exe
+        path: |
+          release/*.exe
+          release/*.zip
         retention-days: 7
+        if-no-files-found: warn
