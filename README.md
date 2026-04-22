@@ -11,7 +11,7 @@
   <a href="https://github.com/randheimer/KaizerIDE/releases"><img src="https://img.shields.io/github/downloads/randheimer/KaizerIDE/total" alt="GitHub downloads"></a>
   <a href="https://github.com/randheimer/KaizerIDE/stargazers"><img src="https://img.shields.io/github/stars/randheimer/KaizerIDE" alt="GitHub stars"></a>
   <a href="https://github.com/randheimer/KaizerIDE/issues"><img src="https://img.shields.io/github/issues/randheimer/KaizerIDE" alt="GitHub issues"></a>
-  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/github/license/randheimer/KaizerIDE" alt="GitHub license"></a>
+  <a href="https://github.com/randheimer/KaizerIDE/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Custom-blue" alt="License"></a>
 </p>
 
 ## Features
@@ -84,7 +84,13 @@ npm run electron:build
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under a Custom License - see the [LICENSE](LICENSE) file for details.
+
+**Summary:**
+- ✅ Free to use, modify, and distribute
+- ✅ Must credit "randheimer" in your modified versions
+- ❌ Cannot sell or use commercially without permission
+- ❌ Must include original author attribution
 
 ## Contributing
 
