@@ -1,0 +1,426 @@
+import React, { useState, useEffect } from 'react';
+import TitleBar from './components/Layout/TitleBar';
+import FileExplorer from './components/Sidebar/FileExplorer';
+import EditorArea from './components/Editor/EditorArea';
+import ChatPanel from './components/AI/chat/ChatPanel';
+import StatusBar from './components/Common/StatusBar';
+import SettingsModal from './components/Modals/SettingsModal';
+import ErrorToast from './components/Common/ErrorToast';
+import FilePicker from './components/Common/FilePicker';
+import HelpModal from './components/UI/HelpModal';
+import './App.css';
+
+const DEFAULT_SETTINGS = {
+  endpoint: "http://localhost:20128/v1",
+  apiKey: "",
+  selectedModel: { id: "kr/claude-sonnet-4.5", name: "Claude Sonnet 4.5", maxOutputTokens: 16000 },
+  models: [
+    { id: "kr/claude-sonnet-4.5", name: "Claude Sonnet 4.5", maxOutputTokens: 16000 },
+    { id: "kr/claude-haiku-4.5", name: "Claude Haiku 4.5", maxOutputTokens: 16000 },
+    { id: "cx/gpt-5.3-codex", name: "GPT-5.3 Codex", maxOutputTokens: 16000 },
+    { id: "qw/qwen3-coder-plus", name: "Qwen3 Coder+", maxOutputTokens: 16000 },
+    { id: "gemini/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash", maxOutputTokens: 16000 }
+  ],
+  systemPrompts: {}
+};
+
+function App() {
+  const [workspacePath, setWorkspacePath] = useState(null);
+  const [tabs, setTabs] = useState([]);
+  const [activeTabPath, setActiveTabPath] = useState(null);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('kaizer-settings');
+    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+  });
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [filePickerOpen, setFilePickerOpen] = useState(false);
+  const [filePickerStartPath, setFilePickerStartPath] = useState('');
+  const [filePickerMode, setFilePickerMode] = useState('attach'); // 'attach' or 'folder'
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Load workspace path on mount
+  useEffect(() => {
+    const loadWorkspace = async () => {
+      console.log('[App] Attempting to load workspace path...');
+      const result = await window.electron.loadWorkspacePath();
+      console.log('[App] loadWorkspacePath result:', result);
+      if (result.success && result.workspacePath) {
+        console.log('[App] Setting workspacePath to:', result.workspacePath);
+        setWorkspacePath(result.workspacePath);
+      } else {
+        console.log('[App] No workspace path found - you need to open a folder via File → Open Folder');
+      }
+    };
+    loadWorkspace();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveActiveTab();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        setSidebarVisible(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setShowSettings(true);
+      }
+    };
+
+    const handleFileWritten = (event) => {
+      const { path, type, content, originalContent } = event.detail;
+      
+      // Refresh file tree
+      if (workspacePath) {
+        window.electron.getFileTree(workspacePath).then(result => {
+          if (result.success) {
+            window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: result.tree }));
+          }
+        });
+      }
+      
+      // Check if file is currently open in a tab
+      const tab = tabs.find(t => t.path === path);
+      if (tab) {
+        // Update tab with diff view
+        setTabs(prev => prev.map(t => 
+          t.path === path ? { 
+            ...t, 
+            content: originalContent || t.content, // Keep original content for diff
+            newContent: content, // New content from AI
+            dirty: false,
+            showDiff: true,
+            changeType: type,
+            originalContent: originalContent || t.content
+          } : t
+        ));
+        
+        // Make sure this tab is active so user sees the diff
+        setActiveTabPath(path);
+      } else {
+        // File not open, open it with diff view
+        handleFileOpen(path, {
+          showDiff: true,
+          newContent: content,
+          changeType: type,
+          originalContent: originalContent
+        });
+      }
+    };
+
+    const handleOpenFilePicker = (event) => {
+      setFilePickerStartPath(event.detail.startPath || workspacePath || '');
+      setFilePickerMode('attach'); // Chat always uses attach mode
+      setFilePickerOpen(true);
+    };
+
+    const handleOpenPreview = (event) => {
+      const { originalPath, content } = event.detail;
+      const fileName = originalPath.split(/[\\/]/).pop();
+      const previewPath = `${originalPath}:preview`;
+      
+      // Check if preview already exists
+      const existingPreview = tabs.find(t => t.path === previewPath);
+      if (existingPreview) {
+        setActiveTabPath(previewPath);
+        return;
+      }
+      
+      // Create new preview tab
+      const previewTab = {
+        path: previewPath,
+        name: `${fileName} [Preview]`,
+        content: content,
+        dirty: false,
+        isPreview: true,
+        originalPath: originalPath
+      };
+      
+      setTabs(prev => [...prev, previewTab]);
+      setActiveTabPath(previewPath);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('kaizer:file-written', handleFileWritten);
+    window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
+    window.addEventListener('kaizer:open-preview', handleOpenPreview);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('kaizer:file-written', handleFileWritten);
+      window.removeEventListener('kaizer:open-filepicker', handleOpenFilePicker);
+      window.removeEventListener('kaizer:open-preview', handleOpenPreview);
+    };
+  }, [activeTabPath, tabs, workspacePath]);
+
+  const handleOpenFolder = async () => {
+    console.log('[App] Opening folder picker...');
+    setFilePickerStartPath(workspacePath || '');
+    setFilePickerMode('folder');
+    setFilePickerOpen(true);
+  };
+
+  const handleFileOpen = async (filePath, options = {}) => {
+    const existingTab = tabs.find(tab => tab.path === filePath);
+    
+    if (existingTab) {
+      setActiveTabPath(filePath);
+      
+      // If diff view is requested, update the tab with diff info
+      if (options.showDiff && options.newContent) {
+        setTabs(prev => prev.map(tab => 
+          tab.path === filePath 
+            ? { 
+                ...tab, 
+                showDiff: true, 
+                newContent: options.newContent,
+                changeType: options.changeType,
+                originalContent: tab.content 
+              }
+            : tab
+        ));
+      }
+      return;
+    }
+
+    const result = await window.electron.readFile(filePath);
+    
+    if (result.success) {
+      const fileName = filePath.split(/[\\/]/).pop();
+      const newTab = {
+        path: filePath,
+        name: fileName,
+        content: result.content,
+        dirty: false,
+        showDiff: options.showDiff || false,
+        newContent: options.newContent || null,
+        changeType: options.changeType || null,
+        originalContent: result.content
+      };
+      
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabPath(filePath);
+    }
+  };
+
+  const handleTabSelect = (path) => {
+    setActiveTabPath(path);
+  };
+
+  const handleTabClose = (path) => {
+    setTabs(prevTabs => {
+      const tabIndex = prevTabs.findIndex(tab => tab.path === path);
+      const newTabs = prevTabs.filter(tab => tab.path !== path);
+
+      if (activeTabPath === path) {
+        if (newTabs.length > 0) {
+          const newActiveIndex = Math.min(tabIndex, newTabs.length - 1);
+          setActiveTabPath(newTabs[newActiveIndex].path);
+        } else {
+          setActiveTabPath(null);
+        }
+      }
+      
+      return newTabs;
+    });
+  };
+
+  const handleContentChange = (newContent) => {
+    setTabs(prev => prev.map(tab => {
+      if (tab.path === activeTabPath) {
+        return { ...tab, content: newContent, dirty: true };
+      }
+      return tab;
+    }));
+  };
+
+  const saveActiveTab = async () => {
+    if (!activeTabPath) return;
+
+    const activeTab = tabs.find(tab => tab.path === activeTabPath);
+    if (!activeTab || !activeTab.dirty) return;
+
+    const result = await window.electron.writeFile(activeTabPath, activeTab.content);
+    
+    if (result.success) {
+      setTabs(prev => prev.map(tab => {
+        if (tab.path === activeTabPath) {
+          return { ...tab, dirty: false };
+        }
+        return tab;
+      }));
+    } else {
+      setErrorMessage(`Failed to save file: ${result.error}`);
+    }
+  };
+
+  const handleSettingsSave = (newSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
+    setShowSettings(false);
+  };
+
+  const handleMenuAction = async (action) => {
+    switch (action) {
+      case 'new-file':
+        if (workspacePath) {
+          const fileName = prompt('Enter file name:');
+          if (fileName) {
+            const newFilePath = `${workspacePath}\\${fileName}`;
+            const result = await window.electron.writeFile(newFilePath, '');
+            if (result.success) {
+              handleFileOpen(newFilePath);
+              // Refresh file tree
+              window.electron.getFileTree(workspacePath).then(res => {
+                if (res.success) {
+                  window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: res.tree }));
+                }
+              });
+            } else {
+              setErrorMessage(`Failed to create file: ${result.error}`);
+            }
+          }
+        } else {
+          setErrorMessage('Please open a folder first');
+        }
+        break;
+      
+      case 'open-folder':
+        handleOpenFolder();
+        break;
+      
+      case 'save-file':
+        saveActiveTab();
+        break;
+      
+      case 'save-all':
+        for (const tab of tabs) {
+          if (tab.dirty) {
+            await window.electron.writeFile(tab.path, tab.content);
+          }
+        }
+        setTabs(prev => prev.map(tab => ({ ...tab, dirty: false })));
+        break;
+      
+      case 'close-tab':
+        if (activeTabPath) {
+          handleTabClose(activeTabPath);
+        }
+        break;
+      
+      case 'close-folder':
+        setWorkspacePath(null);
+        setTabs([]);
+        setActiveTabPath(null);
+        break;
+      
+      case 'toggle-sidebar':
+        setSidebarVisible(prev => !prev);
+        break;
+      
+      case 'toggle-explorer':
+        setSidebarVisible(prev => !prev);
+        break;
+      
+      case 'show-docs':
+        setShowHelpModal(true);
+        break;
+      
+      default:
+        console.log('Menu action not implemented:', action);
+    }
+  };
+
+  return (
+    <div className="app">
+      <TitleBar 
+        workspacePath={workspacePath} 
+        onSettingsClick={() => setShowSettings(true)}
+        onMenuAction={handleMenuAction}
+      />
+      <div className="main-content">
+        <FileExplorer
+          workspacePath={workspacePath}
+          activeFile={activeTabPath}
+          onFileOpen={handleFileOpen}
+          onOpenFolder={handleOpenFolder}
+          onOpenFilePicker={(startPath) => {
+            setFilePickerStartPath(startPath);
+            setFilePickerOpen(true);
+          }}
+          visible={sidebarVisible}
+        />
+        <EditorArea
+          tabs={tabs}
+          activeTab={activeTabPath}
+          onTabSelect={handleTabSelect}
+          onTabClose={handleTabClose}
+          onContentChange={handleContentChange}
+        />
+        <div style={{
+          width: '340px',
+          minWidth: '340px',
+          maxWidth: '340px',
+          height: '100%',
+          flexShrink: 0,
+          overflow: 'hidden'
+        }}>
+          <ChatPanel 
+            workspacePath={workspacePath}
+            activeFile={activeTabPath}
+            activeFileContent={tabs.find(tab => tab.path === activeTabPath)?.content}
+            settings={settings}
+            onOpenFile={handleFileOpen}
+          />
+        </div>
+      </div>
+      <StatusBar
+        activeFile={activeTabPath}
+        modelName={settings.selectedModel.name}
+        endpoint={settings.endpoint}
+      />
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          onSave={handleSettingsSave}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+      {errorMessage && (
+        <ErrorToast
+          message={errorMessage}
+          onClose={() => setErrorMessage(null)}
+        />
+      )}
+      {filePickerOpen && (
+        <FilePicker
+          startPath={filePickerStartPath}
+          workspacePath={workspacePath}
+          mode={filePickerMode}
+          onAttach={(items) => {
+            if (filePickerMode === 'folder' && items.length > 0) {
+              // Folder selection mode - set as workspace
+              const folderPath = items[0].path;
+              console.log('[App] Selected folder:', folderPath);
+              setWorkspacePath(folderPath);
+              window.electron.saveWorkspacePath(folderPath);
+              setFilePickerOpen(false);
+            } else {
+              // File attachment mode - dispatch event
+              window.dispatchEvent(new CustomEvent('kaizer:attach-context', { detail: { items } }));
+              setFilePickerOpen(false);
+            }
+          }}
+          onClose={() => setFilePickerOpen(false)}
+        />
+      )}
+      {showHelpModal && (
+        <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+    </div>
+  );
+}
+
+export default App;

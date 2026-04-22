@@ -1,0 +1,13 @@
+node_modules
+dist
+release
+build
+electron
+*.log
+*.md
+.DS_Store
+!README.md
+!BUILD.md
+!CHAT_CURSOR_REDESIGN.md
+!CHAT_REFACTOR_SUMMARY.md
+!TEST/README.md
