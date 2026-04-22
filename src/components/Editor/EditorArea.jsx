@@ -222,31 +222,6 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     };
   }, []);
 
-  // Load and apply editor settings on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('kaizer-editor-settings');
-    if (savedSettings && editorRef.current && monacoRef.current) {
-      const settings = JSON.parse(savedSettings);
-      console.log('[EditorArea] Loading saved settings:', settings);
-      
-      editorRef.current.updateOptions({
-        fontSize: settings.fontSize,
-        tabSize: settings.tabSize,
-        wordWrap: settings.wordWrap,
-        minimap: { enabled: settings.minimap },
-        lineNumbers: settings.lineNumbers ? 'on' : 'off',
-        fontFamily: settings.fontFamily,
-        cursorStyle: settings.cursorStyle,
-        renderWhitespace: settings.renderWhitespace,
-        bracketPairColorization: { enabled: settings.bracketPairColorization },
-        formatOnType: settings.formatOnSave,
-        formatOnPaste: settings.formatOnSave
-      });
-      
-      monacoRef.current.editor.setTheme(settings.theme);
-    }
-  }, [editorRef.current, monacoRef.current]);
-
   // Apply pending diff when switching tabs
   useEffect(() => {
     if (activeTab && pendingDiffs.current[activeTab] && editorRef.current) {
@@ -450,69 +425,94 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       }
     });
 
-    // Register Zero Syntax theme - minimal, distraction-free
+    // Register Zero Syntax theme - minimal, distraction-free with Kaizer Dark design
     monaco.editor.defineTheme('zero-syntax', {
       base: 'vs-dark',
-      inherit: true,
+      inherit: false,
       rules: [
-        { token: 'comment',          foreground: '555555', fontStyle: 'italic' },
-        { token: 'keyword',          foreground: 'cccccc' },
-        { token: 'string',           foreground: 'cccccc' },
-        { token: 'number',           foreground: 'cccccc' },
-        { token: 'type',             foreground: 'cccccc' },
-        { token: 'class',            foreground: 'cccccc' },
-        { token: 'function',         foreground: 'cccccc' },
-        { token: 'variable',         foreground: 'cccccc' },
-        { token: 'variable.predefined', foreground: 'cccccc' },
-        { token: 'constant',         foreground: 'cccccc' },
-        { token: 'operator',         foreground: '888888' },
-        { token: 'delimiter',        foreground: '888888' },
-        { token: 'tag',              foreground: 'cccccc' },
-        { token: 'attribute.name',   foreground: 'aaaaaa' },
-        { token: 'attribute.value',  foreground: 'cccccc' },
-        { token: 'regexp',           foreground: 'cccccc' },
-        { token: 'metatag',          foreground: '888888' },
+        // Everything gray - no syntax highlighting
+        { token: '',                 foreground: '999999' },
+        { token: 'comment',          foreground: '666666', fontStyle: 'italic' },
+        { token: 'comment.doc',      foreground: '666666', fontStyle: 'italic' },
+        { token: 'comment.block',    foreground: '666666', fontStyle: 'italic' },
+        { token: 'comment.line',     foreground: '666666', fontStyle: 'italic' },
+        { token: 'keyword',          foreground: '999999' },
+        { token: 'keyword.control',  foreground: '999999' },
+        { token: 'keyword.operator', foreground: '999999' },
+        { token: 'string',           foreground: '999999' },
+        { token: 'string.quote',     foreground: '999999' },
+        { token: 'string.escape',    foreground: '999999' },
+        { token: 'number',           foreground: '999999' },
+        { token: 'number.float',     foreground: '999999' },
+        { token: 'number.hex',       foreground: '999999' },
+        { token: 'type',             foreground: '999999' },
+        { token: 'type.identifier',  foreground: '999999' },
+        { token: 'class',            foreground: '999999' },
+        { token: 'class.name',       foreground: '999999' },
+        { token: 'struct',           foreground: '999999' },
+        { token: 'enum',             foreground: '999999' },
+        { token: 'function',         foreground: '999999' },
+        { token: 'function.call',    foreground: '999999' },
+        { token: 'identifier',       foreground: '999999' },
+        { token: 'variable',         foreground: '999999' },
+        { token: 'variable.predefined', foreground: '999999' },
+        { token: 'parameter',        foreground: '999999' },
+        { token: 'constant',         foreground: '999999' },
+        { token: 'constant.guid',    foreground: '999999' },
+        { token: 'macro',            foreground: '999999' },
+        { token: 'macro.name',       foreground: '999999' },
+        { token: 'operator',         foreground: '999999' },
+        { token: 'delimiter',        foreground: '999999' },
+        { token: 'delimiter.bracket', foreground: '999999' },
+        { token: 'delimiter.parenthesis', foreground: '999999' },
+        { token: 'tag',              foreground: '999999' },
+        { token: 'attribute.name',   foreground: '999999' },
+        { token: 'attribute.value',  foreground: '999999' },
+        { token: 'regexp',           foreground: '999999' },
+        { token: 'metatag',          foreground: '999999' },
+        { token: 'annotation',       foreground: '999999' },
+        { token: 'namespace',        foreground: '999999' },
       ],
       colors: {
-        'editor.background':               '#1a1a1a',
-        'editor.foreground':               '#cccccc',
-        'editor.lineHighlightBackground':  '#222222',
-        'editor.lineHighlightBorder':      '#00000000',
-        'editor.selectionBackground':      '#333333',
-        'editor.selectionHighlightBackground': '#2a2a2a',
-        'editor.inactiveSelectionBackground': '#252525',
-        'editor.findMatchBackground':      '#444444',
-        'editor.findMatchHighlightBackground': '#333333',
-        'editorLineNumber.foreground':     '#444444',
-        'editorLineNumber.activeForeground': '#888888',
-        'editorCursor.foreground':         '#cccccc',
-        'editorCursor.background':         '#1a1a1a',
-        'editorWhitespace.foreground':     '#333333',
-        'editorIndentGuide.background1':    '#2a2a2a',
-        'editorIndentGuide.activeBackground1': '#444444',
-        'editorBracketMatch.background':   '#333333',
-        'editorBracketMatch.border':       '#666666',
-        'editorBracketHighlight.foreground1': '#888888',
-        'editorBracketHighlight.foreground2': '#888888',
-        'editorBracketHighlight.foreground3': '#888888',
-        'editorWidget.background':         '#222222',
-        'editorWidget.border':             '#333333',
-        'editorSuggestWidget.background':  '#222222',
-        'editorSuggestWidget.border':      '#333333',
-        'editorSuggestWidget.selectedBackground': '#333333',
-        'editorSuggestWidget.highlightForeground': '#cccccc',
-        'editorHoverWidget.background':    '#222222',
-        'editorHoverWidget.border':        '#333333',
-        'editorGutter.background':         '#1a1a1a',
+        'editor.background':               '#0d0d0d',
+        'editor.foreground':               '#999999',
+        'editor.lineHighlightBackground':  '#ffffff08',
+        'editor.lineHighlightBorder':      '#ffffff00',
+        'editor.selectionBackground':      '#a855f730',
+        'editor.selectionHighlightBackground': '#a855f718',
+        'editor.inactiveSelectionBackground': '#a855f715',
+        'editor.findMatchBackground':      '#a855f740',
+        'editor.findMatchHighlightBackground': '#a855f720',
+        'editorLineNumber.foreground':     '#333344',
+        'editorLineNumber.activeForeground': '#a855f7',
+        'editorCursor.foreground':         '#a855f7',
+        'editorCursor.background':         '#0d0d0d',
+        'editorWhitespace.foreground':     '#ffffff15',
+        'editorIndentGuide.background1':    '#ffffff10',
+        'editorIndentGuide.activeBackground1': '#a855f740',
+        'editorBracketMatch.background':   '#a855f730',
+        'editorBracketMatch.border':       '#a855f7',
+        'editorBracketHighlight.foreground1': '#999999',
+        'editorBracketHighlight.foreground2': '#999999',
+        'editorBracketHighlight.foreground3': '#999999',
+        'editorWidget.background':         '#161616',
+        'editorWidget.border':             '#252525',
+        'editorSuggestWidget.background':  '#161616',
+        'editorSuggestWidget.border':      '#252525',
+        'editorSuggestWidget.selectedBackground': '#a855f720',
+        'editorSuggestWidget.highlightForeground': '#a855f7',
+        'editorHoverWidget.background':    '#161616',
+        'editorHoverWidget.border':        '#252525',
+        'editorGutter.background':         '#0d0d0d',
         'scrollbar.shadow':                '#00000000',
-        'scrollbarSlider.background':      '#333333',
-        'scrollbarSlider.hoverBackground': '#444444',
-        'scrollbarSlider.activeBackground':'#555555',
-        'minimap.background':              '#1a1a1a',
-        'minimapSlider.background':        '#333333',
-        'minimapSlider.hoverBackground':   '#444444',
+        'scrollbarSlider.background':      '#ffffff10',
+        'scrollbarSlider.hoverBackground': '#ffffff20',
+        'scrollbarSlider.activeBackground':'#a855f740',
+        'minimap.background':              '#0d0d0d',
+        'minimapSlider.background':        '#a855f720',
+        'minimapSlider.hoverBackground':   '#a855f730',
         'editorOverviewRuler.border':      '#00000000',
-        'editorOverviewRuler.selectionHighlightForeground': '#666666',
+        'editorOverviewRuler.selectionHighlightForeground': '#a855f7',
       }
     });
 
@@ -779,8 +779,43 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       })
     );
 
-    // Set theme
-    monaco.editor.setTheme('kaizer-dark');
+    // Load saved editor settings and apply theme
+    const savedSettings = localStorage.getItem('kaizer-editor-settings');
+    let settings = {
+      fontSize: 14,
+      tabSize: 2,
+      wordWrap: 'on',
+      minimap: true,
+      lineNumbers: true,
+      theme: 'kaizer-dark',
+      fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, monospace",
+      cursorStyle: 'line',
+      renderWhitespace: 'selection',
+      bracketPairColorization: true,
+      formatOnSave: false
+    };
+    
+    if (savedSettings) {
+      settings = { ...settings, ...JSON.parse(savedSettings) };
+    }
+
+    // Apply all editor settings
+    editor.updateOptions({
+      fontSize: settings.fontSize,
+      tabSize: settings.tabSize,
+      wordWrap: settings.wordWrap,
+      minimap: { enabled: settings.minimap },
+      lineNumbers: settings.lineNumbers ? 'on' : 'off',
+      fontFamily: settings.fontFamily,
+      cursorStyle: settings.cursorStyle,
+      renderWhitespace: settings.renderWhitespace,
+      bracketPairColorization: { enabled: settings.bracketPairColorization },
+      formatOnType: settings.formatOnSave,
+      formatOnPaste: settings.formatOnSave
+    });
+
+    // Set theme from settings
+    monaco.editor.setTheme(settings.theme);
 
     // Clear decorations when user edits
     editor.onDidChangeModelContent(() => {
@@ -801,11 +836,6 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
 
     // Auto-focus
     editor.focus();
-
-    // Fix font rendering on Windows
-    editor.updateOptions({ 
-      fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, monospace" 
-    });
   };
 
   const handleTabClick = (e, path) => {
