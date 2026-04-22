@@ -50,7 +50,6 @@
     "asarUnpack": [],
     "compression": "maximum",
     "win": {
-      "icon": "docs/images/logo.ico",
       "target": [
         {
           "target": "nsis",
