@@ -148,7 +148,7 @@ When you use AI features:
 - You don't mind cloud dependency
 - You're willing to pay for Pro features
 
-**Bottom Line:** KaizerIDE is for developers who want privacy-first AI coding without complexity or subscriptions.
+**Bottom line:** KaizerIDE is for developers who want **local-first AI coding with no telemetry, no required accounts, and no outbound data by default**.
 
 ---
 
