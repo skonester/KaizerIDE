@@ -324,29 +324,31 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         { token: 'number.binary',    foreground: 'f78c6c' },
         
         // Types and classes
-        { token: 'type',             foreground: '82aaff' },
-        { token: 'type.identifier',  foreground: '82aaff' },
+        { token: 'type',             foreground: '4ec9b0', fontStyle: 'bold' },
+        { token: 'type.identifier',  foreground: '4ec9b0', fontStyle: 'bold' },
         { token: 'type.config',      foreground: '89ddff' },
         { token: 'type.property',    foreground: 'f07178' },
         { token: 'type.section',     foreground: '82aaff' },
-        { token: 'class',            foreground: 'ffcb6b' },
-        { token: 'class.name',       foreground: 'ffcb6b' },
-        { token: 'struct',           foreground: 'ffcb6b' },
-        { token: 'enum',             foreground: 'ffcb6b' },
+        { token: 'class',            foreground: '4ec9b0', fontStyle: 'bold' },
+        { token: 'class.name',       foreground: '4ec9b0', fontStyle: 'bold' },
+        { token: 'struct',           foreground: '4ec9b0', fontStyle: 'bold' },
+        { token: 'enum',             foreground: '4ec9b0', fontStyle: 'bold' },
         
         // Functions and identifiers
-        { token: 'function',         foreground: 'dcdcaa', fontStyle: 'bold' },
-        { token: 'function.call',    foreground: 'dcdcaa', fontStyle: 'bold' },
+        { token: 'function',         foreground: 'dcdcaa' },
+        { token: 'function.call',    foreground: 'dcdcaa' },
+        { token: 'method',           foreground: 'dcdcaa' },
+        { token: 'method.call',      foreground: 'dcdcaa' },
         { token: 'identifier',       foreground: '9cdcfe' },
         { token: 'variable',         foreground: '9cdcfe' },
         { token: 'variable.predefined', foreground: '4fc1ff' },
-        { token: 'parameter',        foreground: 'f78c6c' },
+        { token: 'parameter',        foreground: '9cdcfe' },
         
         // Constants and macros
         { token: 'constant',         foreground: '4fc1ff' },
         { token: 'constant.guid',    foreground: 'ffcb6b' },
-        { token: 'macro',            foreground: 'c586c0', fontStyle: 'bold' },
-        { token: 'macro.name',       foreground: 'c586c0', fontStyle: 'bold' },
+        { token: 'macro',            foreground: 'c586c0' },
+        { token: 'macro.name',       foreground: 'c586c0' },
         
         // Operators and delimiters
         { token: 'operator',         foreground: 'd4d4d4' },
@@ -654,26 +656,33 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
           if (line.match(/^\s*#\s*(include|define|ifdef|ifndef|endif|pragma)/)) {
             const match = line.match(/#\s*(\w+)/);
             if (match) {
-              data.push(lineIndex, match.index, match[0].length, 13, 0);
+              data.push(lineIndex, match.index, match[0].length, 13, 0); // macro token
             }
           }
           
-          // Function calls
-          const funcMatches = line.matchAll(/\b([a-zA-Z_]\w*)\s*\(/g);
+          // Method calls with -> or . (e.g., pDevice->GetImmediateContext)
+          const methodMatches = line.matchAll(/(?:->|\.)\s*([a-zA-Z_]\w*)\s*\(/g);
+          for (const match of methodMatches) {
+            const methodStart = match.index + match[0].indexOf(match[1]);
+            data.push(lineIndex, methodStart, match[1].length, 12, 0); // method token
+          }
+          
+          // Regular function calls (not preceded by -> or .)
+          const funcMatches = line.matchAll(/(?<!->|\.)\b([a-zA-Z_]\w*)\s*\(/g);
           for (const match of funcMatches) {
-            data.push(lineIndex, match.index, match[1].length, 11, 0);
+            data.push(lineIndex, match.index, match[1].length, 11, 0); // function token
           }
           
-          // Type names
-          const typeMatches = line.matchAll(/\b([A-Z][a-zA-Z0-9_]*|PVOID|HANDLE|DWORD|ULONG|NTSTATUS|BOOLEAN|PCHAR|PWSTR|SIZE_T)\b/g);
+          // Type names (capitalized words, common Windows types)
+          const typeMatches = line.matchAll(/\b([A-Z][a-zA-Z0-9_]*|HRESULT|PVOID|HANDLE|DWORD|ULONG|UINT|LONG|LPVOID|NTSTATUS|BOOLEAN|PCHAR|PWSTR|SIZE_T|ID3D11\w+|IDXGI\w+)\b/g);
           for (const match of typeMatches) {
-            data.push(lineIndex, match.index, match[0].length, 6, 0);
+            data.push(lineIndex, match.index, match[0].length, 6, 0); // type token
           }
           
-          // Macros
+          // Macros and constants (ALL_CAPS)
           const macroMatches = line.matchAll(/\b([A-Z_][A-Z0-9_]{2,})\b/g);
           for (const match of macroMatches) {
-            data.push(lineIndex, match.index, match[0].length, 13, 0);
+            data.push(lineIndex, match.index, match[0].length, 13, 0); // macro token
           }
         });
         
