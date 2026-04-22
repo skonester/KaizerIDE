@@ -169,7 +169,7 @@ jobs:
   # Fallback to Windows if Linux fails
   build-electron-windows:
     runs-on: windows-latest
-    needs: [install, version, build-electron-linux]
+    needs: [version, build-electron-linux]
     if: needs.build-electron-linux.outputs.success != 'true'
 
     steps:
@@ -180,12 +180,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Restore node_modules
-        uses: actions/cache/restore@v3
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
 
       - name: Build Electron
         run: npm run electron:build
