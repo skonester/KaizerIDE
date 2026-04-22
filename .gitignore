@@ -12,10 +12,6 @@ test
 
 # Documentation (except specific files)
 #*.md
-!BUILD.md
-!CHAT_CURSOR_REDESIGN.md
-!CHAT_REFACTOR_SUMMARY.md
-!TEST/README.md
 
 # GitHub workflow documentation (internal only)
 .github/WORKFLOW.md
