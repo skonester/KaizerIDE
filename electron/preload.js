@@ -30,5 +30,12 @@ contextBridge.exposeInMainWorld('electron', {
     const listener = (event, p) => callback(p);
     ipcRenderer.on('open-path', listener);
     return () => ipcRenderer.removeListener('open-path', listener);
+  },
+  
+  // Listen for file system changes
+  onFileSystemChanged: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('file-system-changed', listener);
+    return () => ipcRenderer.removeListener('file-system-changed', listener);
   }
 });

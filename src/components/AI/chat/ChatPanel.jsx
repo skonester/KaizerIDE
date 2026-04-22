@@ -636,6 +636,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     // Initialize streaming message
     streamingMsgRef.current = {
       content: '',
+      contentSegments: [''], // Track content between thinking blocks
       thinkingBlocks: [], // Array of thinking sessions
       currentThinkingIndex: -1,
       isThinking: false,
@@ -655,7 +656,22 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         mode: currentMode, // Pass the selected mode (agent/plan/ask/fixer)
         onToken: (token) => {
           streamingMsgRef.current.content += token;
-          updateStreaming({ content: streamingMsgRef.current.content });
+          // Append to the current content segment (after last thinking block)
+          const segmentIndex = streamingMsgRef.current.thinkingBlocks.length;
+          if (!streamingMsgRef.current.contentSegments[segmentIndex]) {
+            streamingMsgRef.current.contentSegments[segmentIndex] = '';
+          }
+          streamingMsgRef.current.contentSegments[segmentIndex] += token;
+          
+          // Debug: log every 100 characters
+          if (streamingMsgRef.current.content.length % 100 === 0) {
+            console.log('[ChatPanel] 📄 Content length:', streamingMsgRef.current.content.length, 'Segment:', segmentIndex);
+          }
+          
+          updateStreaming({ 
+            content: streamingMsgRef.current.content,
+            contentSegments: [...streamingMsgRef.current.contentSegments]
+          });
           
           // Scroll to bottom
           if (!isUserScrolledUp.current && messagesContainerRef.current) {
@@ -664,6 +680,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         },
         onThinkingToken: (token) => {
           if (token === '__START__') {
+            console.log('[ChatPanel] 🧠 Thinking block started');
             thinkStartTime.current = Date.now();
             // Add new thinking block
             const newBlock = {
@@ -674,8 +691,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             };
             streamingMsgRef.current.thinkingBlocks.push(newBlock);
             streamingMsgRef.current.currentThinkingIndex = streamingMsgRef.current.thinkingBlocks.length - 1;
+            // Start a new content segment after this thinking block
+            streamingMsgRef.current.contentSegments.push('');
+            console.log('[ChatPanel] Created thinking block at index:', streamingMsgRef.current.currentThinkingIndex);
             updateStreaming({ 
               thinkingBlocks: [...streamingMsgRef.current.thinkingBlocks],
+              contentSegments: [...streamingMsgRef.current.contentSegments],
               currentThinkingIndex: streamingMsgRef.current.currentThinkingIndex
             });
             return;
@@ -684,6 +705,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           if (token === '__END__') {
             const duration = Date.now() - thinkStartTime.current;
             const currentIdx = streamingMsgRef.current.currentThinkingIndex;
+            console.log('[ChatPanel] ✅ Thinking block ended at index:', currentIdx, 'Duration:', duration, 'ms');
             if (currentIdx >= 0 && currentIdx < streamingMsgRef.current.thinkingBlocks.length) {
               streamingMsgRef.current.thinkingBlocks[currentIdx].isThinking = false;
               streamingMsgRef.current.thinkingBlocks[currentIdx].expanded = false;
@@ -758,10 +780,15 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           
           // Commit streaming message to messages (only if exists)
           if (streamingMsgRef.current) {
+            console.log('[ChatPanel] 📝 Finalizing message. Content length:', streamingMsgRef.current.content.length);
+            console.log('[ChatPanel] 📝 Content segments:', streamingMsgRef.current.contentSegments.length);
+            console.log('[ChatPanel] 📝 Thinking blocks:', streamingMsgRef.current.thinkingBlocks.length);
+            
             const finalMsg = {
               id: crypto.randomUUID(),
               role: 'assistant',
               content: streamingMsgRef.current.content || '',
+              contentSegments: streamingMsgRef.current.contentSegments || [''], // Save segments!
               thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
             };
             
@@ -1164,117 +1191,81 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     return (
       <div className="message-row assistant-row" key="streaming">
         <div className="message-assistant">
-          {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
-            <div key={blockIdx} className="thinking-block">
-              <div 
-                className="thinking-header"
-                onClick={() => {
-                  const blocks = [...streamingMsgRef.current.thinkingBlocks];
-                  blocks[blockIdx].expanded = !blocks[blockIdx].expanded;
-                  streamingMsgRef.current.thinkingBlocks = blocks;
-                  updateStreaming({ thinkingBlocks: blocks });
-                }}
-              >
-                {block.isThinking ? (
-                  <span className="thinking-spinner"></span>
-                ) : (
-                  <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
-                )}
-                <span className="thinking-label">
-                  {block.isThinking
-                    ? 'Thinking...'
-                    : `Thought for ${((block.duration || 0) / 1000).toFixed(1)}s`}
-                </span>
-                <span 
-                  className="thinking-chevron"
-                  style={{transform: block.expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-                >
-                  ▸
-                </span>
-              </div>
-              {block.expanded && (
-                <div className="thinking-body">
-                  <pre>{block.content}</pre>
+          {/* Interleave content segments and thinking blocks */}
+          {msg.contentSegments && msg.contentSegments.map((segment, idx) => (
+            <React.Fragment key={`segment-${idx}`}>
+              {/* Render content segment */}
+              {segment && (
+                <div className="assistant-message">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    unwrapDisallowed={true}
+                    components={{
+                      code: ({ node, inline, className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const language = match ? match[1] : '';
+                        
+                        if (!inline) {
+                          const codeContent = String(children).replace(/\n$/, '');
+                          
+                          return (
+                            <div className="code-block-wrapper">
+                              {language && (
+                                <div className="code-block-header">
+                                  <span className="code-language">{language}</span>
+                                </div>
+                              )}
+                              <StreamingCodeBlock code={codeContent} language={language} />
+                            </div>
+                          );
+                        }
+                        return <code className={className} {...props}>{children}</code>;
+                      }
+                    }}
+                  >
+                    {segment}
+                  </ReactMarkdown>
                 </div>
               )}
-            </div>
+              
+              {/* Render thinking block after this segment (if exists) */}
+              {msg.thinkingBlocks && msg.thinkingBlocks[idx] && (
+                <div className="thinking-block">
+                  <div 
+                    className="thinking-header"
+                    onClick={() => {
+                      const blocks = [...streamingMsgRef.current.thinkingBlocks];
+                      blocks[idx].expanded = !blocks[idx].expanded;
+                      streamingMsgRef.current.thinkingBlocks = blocks;
+                      updateStreaming({ thinkingBlocks: blocks });
+                    }}
+                  >
+                    {msg.thinkingBlocks[idx].isThinking ? (
+                      <span className="thinking-spinner"></span>
+                    ) : (
+                      <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                    )}
+                    <span className="thinking-label">
+                      {msg.thinkingBlocks[idx].isThinking
+                        ? 'Thinking...'
+                        : `Thought for ${((msg.thinkingBlocks[idx].duration || 0) / 1000).toFixed(1)}s`}
+                    </span>
+                    <span 
+                      className="thinking-chevron"
+                      style={{transform: msg.thinkingBlocks[idx].expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                    >
+                      ▸
+                    </span>
+                  </div>
+                  {msg.thinkingBlocks[idx].expanded && (
+                    <div className="thinking-body">
+                      <pre>{msg.thinkingBlocks[idx].content}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </React.Fragment>
           ))}
-          {msg.content && (
-            <div className="assistant-message">
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const language = match ? match[1] : '';
-                    
-                    if (!inline) {
-                      const codeContent = String(children).replace(/\n$/, '');
-                      
-                      return (
-                        <div className="code-block-wrapper">
-                          {language && (
-                            <div className="code-block-header">
-                              <span className="code-block-lang">{language}</span>
-                              <button className="code-copy-btn" onClick={() => {
-                                navigator.clipboard.writeText(codeContent);
-                              }}>
-                                Copy
-                              </button>
-                            </div>
-                          )}
-                          <SyntaxHighlighter
-                            style={vscDarkPlus}
-                            language={language || 'text'}
-                            PreTag="div"
-                            customStyle={{
-                              margin: 0,
-                              borderRadius: language ? '0 0 8px 8px' : '8px',
-                              fontSize: '12.5px',
-                              background: 'var(--bg-2)',
-                            }}
-                            codeTagProps={{
-                              style: {
-                                fontFamily: 'var(--font-mono)',
-                                lineHeight: '1.5'
-                              }
-                            }}
-                            {...props}
-                          >
-                            {codeContent}
-                          </SyntaxHighlighter>
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <code className="inline-code" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
-                  strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
-                  em: ({ children }) => <em className="assistant-italic">{children}</em>,
-                  h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
-                  h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
-                  h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
-                  h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
-                  h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
-                  h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
-                  ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
-                  ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
-                  li: ({ children }) => <li className="assistant-li">{children}</li>,
-                  blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
-                  hr: () => <hr className="assistant-hr" />,
-                  a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-                  del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -1309,7 +1300,132 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       return (
         <div key={idx} className="message-row assistant-row">
           <div className="message-assistant">
-            {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
+            {/* Interleave content segments and thinking blocks */}
+            {msg.contentSegments && msg.contentSegments.length > 0 ? (
+              // New format with segments
+              msg.contentSegments.map((segment, segIdx) => (
+                <React.Fragment key={`segment-${segIdx}`}>
+                  {/* Render content segment */}
+                  {segment && (
+                    <div className="assistant-message">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        unwrapDisallowed={true}
+                        components={{
+                          code: ({ node, inline, className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const language = match ? match[1] : '';
+                            
+                            if (!inline) {
+                              const codeContent = String(children).replace(/\n$/, '');
+                              
+                              return (
+                                <div className="code-block-wrapper">
+                                  {language && (
+                                    <div className="code-block-header">
+                                      <span className="code-block-lang">{language}</span>
+                                      <button className="code-copy-btn" onClick={() => {
+                                        navigator.clipboard.writeText(codeContent);
+                                      }}>
+                                        Copy
+                                      </button>
+                                    </div>
+                                  )}
+                                  <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={language || 'text'}
+                                    PreTag="div"
+                                    customStyle={{
+                                      margin: 0,
+                                      borderRadius: language ? '0 0 8px 8px' : '8px',
+                                      fontSize: '12.5px',
+                                      background: 'var(--bg-2)',
+                                    }}
+                                    codeTagProps={{
+                                      style: {
+                                        fontFamily: 'var(--font-mono)',
+                                        lineHeight: '1.5'
+                                      }
+                                    }}
+                                    {...props}
+                                  >
+                                    {codeContent}
+                                  </SyntaxHighlighter>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <code className="inline-code" {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                          p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
+                          strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
+                          em: ({ children }) => <em className="assistant-italic">{children}</em>,
+                          h1: ({ children }) => <h1 className="assistant-h1">{children}</h1>,
+                          h2: ({ children }) => <h2 className="assistant-h2">{children}</h2>,
+                          h3: ({ children }) => <h3 className="assistant-h3">{children}</h3>,
+                          h4: ({ children }) => <h4 className="assistant-h4">{children}</h4>,
+                          h5: ({ children }) => <h5 className="assistant-h5">{children}</h5>,
+                          h6: ({ children }) => <h6 className="assistant-h6">{children}</h6>,
+                          ul: ({ children }) => <ul className="assistant-ul">{children}</ul>,
+                          ol: ({ children }) => <ol className="assistant-ol">{children}</ol>,
+                          li: ({ children }) => <li className="assistant-li">{children}</li>,
+                          blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
+                          hr: () => <hr className="assistant-hr" />,
+                          a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+                          del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
+                        }}
+                      >
+                        {segment}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                  
+                  {/* Render thinking block after this segment (if exists) */}
+                  {msg.thinkingBlocks && msg.thinkingBlocks[segIdx] && (
+                    <div className="thinking-block">
+                      <div 
+                        className="thinking-header"
+                        onClick={() => {
+                          setMessages(prev => prev.map((m, i) => {
+                            if (i !== idx) return m;
+                            const blocks = [...(m.thinkingBlocks || [])];
+                            if (segIdx >= 0 && segIdx < blocks.length) {
+                              blocks[segIdx] = { ...blocks[segIdx], expanded: !blocks[segIdx].expanded };
+                            }
+                            return { ...m, thinkingBlocks: blocks };
+                          }));
+                        }}
+                      >
+                        <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                        <span className="thinking-label">
+                          {msg.thinkingBlocks[segIdx].duration 
+                            ? `Thought for ${(msg.thinkingBlocks[segIdx].duration / 1000).toFixed(1)}s`
+                            : 'Thinking'}
+                        </span>
+                        <span 
+                          className="thinking-chevron"
+                          style={{transform: msg.thinkingBlocks[segIdx].expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
+                        >
+                          ▸
+                        </span>
+                      </div>
+                      {msg.thinkingBlocks[segIdx].expanded && (
+                        <div className="thinking-body">
+                          <pre>{msg.thinkingBlocks[segIdx].content}</pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </React.Fragment>
+              ))
+            ) : (
+              // Old format fallback - all thinking blocks first, then content
+              <>
+                {msg.thinkingBlocks && msg.thinkingBlocks.map((block, blockIdx) => (
               <div key={blockIdx} className="thinking-block">
                 <div 
                   className="thinking-header"
@@ -1350,6 +1466,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
               <div className="assistant-message">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
+                  unwrapDisallowed={true}
                   components={{
                     code: ({ node, inline, className, children, ...props }) => {
                       const match = /language-(\w+)/.exec(className || '');
@@ -1421,6 +1538,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   {msg.content}
                 </ReactMarkdown>
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

@@ -12,6 +12,8 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
   let hasStartedThinking = alreadyStartedThinking;
   let toolCallMap = {};
   
+  console.log('[StreamProcessor] Starting stream consumption');
+  
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -36,12 +38,20 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
           
           // Method 1: reasoning_content field (OpenAI-compatible)
           if (delta.reasoning_content) {
+            if (!hasStartedThinking) {
+              console.log('[StreamProcessor] 🧠 Thinking started (reasoning_content)');
+              hasStartedThinking = true;
+            }
             fullThinking += delta.reasoning_content;
             if (onThinkingToken) onThinkingToken(delta.reasoning_content);
           }
           
           // Method 2: thinking delta type (Anthropic-style via proxy)
           if (delta.type === 'thinking' || delta.thinking) {
+            if (!hasStartedThinking) {
+              console.log('[StreamProcessor] 🧠 Thinking started (thinking delta)');
+              hasStartedThinking = true;
+            }
             const thinkingText = delta.thinking || '';
             fullThinking += thinkingText;
             if (onThinkingToken) onThinkingToken(thinkingText);
@@ -66,8 +76,13 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
                   inThink = true;
                   thinkBuffer = '';
                   if (onThinkingToken && !hasStartedThinking) {
+                    console.log('[StreamProcessor] 🧠 Thinking started (<think> tag)');
                     onThinkingToken('__START__');
                     hasStartedThinking = true;
+                  } else if (onThinkingToken && hasStartedThinking) {
+                    // New thinking block after previous one ended
+                    console.log('[StreamProcessor] 🧠 Thinking started (<think> tag) - new block');
+                    onThinkingToken('__START__');
                   }
                 } else if (!'<think>'.startsWith(thinkBuffer)) {
                   // Not a partial match, flush buffer as content
@@ -80,6 +95,7 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
                 thinkBuffer += char;
                 if (thinkBuffer.includes('</think>')) {
                   // Found closing tag
+                  console.log('[StreamProcessor] ✅ Thinking completed (</think> tag)');
                   const parts = thinkBuffer.split('</think>');
                   const thinkContent = parts[0];
                   if (thinkContent) {
@@ -88,6 +104,7 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
                   }
                   if (onThinkingToken) onThinkingToken('__END__');
                   inThink = false;
+                  hasStartedThinking = false; // Reset for next thinking block
                   const after = parts[1] || '';
                   if (after) {
                     mainContent += after;
@@ -139,6 +156,12 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
   }
   
   const toolCallsArray = Object.values(toolCallMap);
+  
+  if (fullThinking) {
+    console.log('[StreamProcessor] ✅ Thinking completed. Total length:', fullThinking.length, 'characters');
+  }
+  
+  console.log('[StreamProcessor] Stream consumption complete. Content length:', mainContent.length, 'Tool calls:', toolCallsArray.length);
   
   return {
     content: mainContent,

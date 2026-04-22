@@ -70,7 +70,19 @@ export async function runAgentTurn({
     indexer, logger, metrics, sessionManager
   });
   
-  context.setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken, onDone });
+  // Wrap onThinkingToken with logging
+  const wrappedOnThinkingToken = onThinkingToken ? (token) => {
+    if (token === '__START__') {
+      console.log('[Agent] 🧠 Thinking started');
+    } else if (token === '__END__') {
+      console.log('[Agent] ✅ Thinking completed');
+    } else {
+      console.log('[Agent] 💭 Thinking token received (length:', token.length, ')');
+    }
+    onThinkingToken(token);
+  } : null;
+  
+  context.setCallbacks({ onToken, onToolCall, onToolResult, onThinkingToken: wrappedOnThinkingToken, onDone });
   context.setAbortSignal(signal);
   
   let agent;

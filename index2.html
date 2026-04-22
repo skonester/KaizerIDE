@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Demo - KaizerIDE</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .demo-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        input[type="text"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            width: 200px;
+            margin: 5px;
+        }
+        
+        .output {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            min-height: 50px;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        li {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 HTML Demo Page</h1>
+        <p style="text-align: center; font-size: 1.2em;">Welcome to the KaizerIDE HTML Demo!</p>
+        
+        <div class="demo-section">
+            <h2>📝 Text & Headings</h2>
+            <p>This is a paragraph demonstrating <strong>bold text</strong>, <em>italic text</em>, and <u>underlined text</u>.</p>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🎯 Interactive Buttons</h2>
+            <button onclick="showAlert()">Show Alert</button>
+            <button onclick="changeColor()">Change Background</button>
+            <button onclick="addItem()">Add List Item</button>
+        </div>
+        
+        <div class="demo-section">
+            <h2>📋 Dynamic List</h2>
+            <ul id="dynamicList">
+                <li>Item 1</li>
+                <li>Item 2</li>
+                <li>Item 3</li>
+            </ul>
+        </div>
+        
+        <div class="demo-section">
+            <h2>💬 Input & Output</h2>
+            <input type="text" id="userInput" placeholder="Type something...">
+            <button onclick="displayInput()">Display</button>
+            <div class="output" id="output">Your input will appear here...</div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🔗 Links</h2>
+            <a href="https://github.com" target="_blank" style="color: #4fc3f7;">Visit GitHub</a>
+        </div>
+    </div>
+
+    <script>
+        // Console log on page load
+        console.log('hello test 123');
+        console.log('🎉 HTML Demo Page Loaded!');
+        console.log('Page loaded at:', new Date().toLocaleString());
+        
+        // Interactive functions
+        function showAlert() {
+            alert('Hello from KaizerIDE! 👋');
+            console.log('Alert button clicked!');
+        }
+        
+        function changeColor() {
+            const colors = [
+                'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+            ];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.body.style.background = randomColor;
+            console.log('Background changed to:', randomColor);
+        }
+        
+        let itemCount = 3;
+        function addItem() {
+            itemCount++;
+            const list = document.getElementById('dynamicList');
+            const newItem = document.createElement('li');
+            newItem.textContent = `Item ${itemCount}`;
+            newItem.style.animation = 'fadeIn 0.5s';
+            list.appendChild(newItem);
+            console.log('Added new item:', `Item ${itemCount}`);
+        }
+        
+        function displayInput() {
+            const input = document.getElementById('userInput').value;
+            const output = document.getElementById('output');
+            output.textContent = input ? `You typed: "${input}"` : 'Please type something first!';
+            console.log('User input:', input);
+        }
+        
+        // Log some browser info
+        console.log('Browser:', navigator.userAgent);
+        console.log('Screen size:', window.innerWidth + 'x' + window.innerHeight);
+        
+        // Add fade-in animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

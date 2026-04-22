@@ -289,13 +289,23 @@ function App() {
       }
       
       if (!tab && !previewTab) {
-        // File not open, open it with diff view
-        handleFileOpen(path, {
-          showDiff: true,
-          newContent: content,
-          changeType: type,
-          originalContent: originalContent
-        });
+        // Check if it's a plan file - open in preview mode automatically
+        if (path.includes('.kaizer') && path.includes('plans') && path.endsWith('.md')) {
+          // Open plan file in preview mode automatically
+          const fileName = path.split(/[\\/]/).pop();
+          const previewPath = `${path}:preview`;
+          
+          setTabs(prev => [...prev, {
+            path: previewPath,
+            name: `${fileName} (Preview)`,
+            content: content,
+            dirty: false,
+            isPreview: true
+          }]);
+          setActiveTabPath(previewPath);
+        }
+        // For regular files, don't auto-open them
+        // User can manually open from file explorer if needed
       }
     };
 

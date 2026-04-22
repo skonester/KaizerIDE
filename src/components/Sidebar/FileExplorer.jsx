@@ -581,6 +581,22 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
     };
   }, [workspacePath]);
 
+  // Listen for file system changes from Electron
+  useEffect(() => {
+    if (!window.electron?.onFileSystemChanged) return;
+    
+    const unsubscribe = window.electron.onFileSystemChanged((data) => {
+      console.log('[FileExplorer] File system changed, updating tree');
+      if (data.tree) {
+        setTree(data.tree);
+      }
+    });
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
   // Sync with prop changes
   useEffect(() => {
     if (workspacePathProp && workspacePathProp !== workspacePath) {
