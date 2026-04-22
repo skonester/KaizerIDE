@@ -67,7 +67,7 @@ jobs:
       
       - name: Convert PNG to ICO
         run: |
-          node -e "const sharp = require('sharp'); const fs = require('fs'); async function convert() { await sharp('images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('images/logo-256.png'); const { default: pngToIco } = await import('png-to-ico'); const buf = await pngToIco(['images/logo-256.png']); fs.writeFileSync('images/logo.ico', buf); console.log('ICO created:', buf.length, 'bytes'); } convert().catch(e => { console.error(e); process.exit(1); });"
+          node -e "const sharp = require('sharp'); const fs = require('fs'); async function convert() { await sharp('docs/images/logo.png').resize(256, 256, { fit: 'contain', background: { r:0,g:0,b:0,alpha:0 } }).png().toFile('docs/images/logo-256.png'); const { default: pngToIco } = await import('png-to-ico'); const buf = await pngToIco(['docs/images/logo-256.png']); fs.writeFileSync('docs/images/logo.ico', buf); console.log('ICO created:', buf.length, 'bytes'); } convert().catch(e => { console.error(e); process.exit(1); });"
         shell: pwsh
       
       - name: Build Vite app (production)

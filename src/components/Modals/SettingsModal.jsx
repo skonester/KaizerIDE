@@ -44,7 +44,9 @@ function SettingsModal({ settings, onSave, onClose }) {
   const handleSaveEditor = () => {
     localStorage.setItem('kaizer-editor-settings', JSON.stringify(editorSettings));
     window.dispatchEvent(new CustomEvent('kaizer:editor-settings-changed', { detail: editorSettings }));
-    alert('Editor settings saved! Some changes may require reopening files.');
+    
+    // Close the modal immediately so user sees the changes
+    onClose();
   };
 
   const handleSaveAppearance = () => {
