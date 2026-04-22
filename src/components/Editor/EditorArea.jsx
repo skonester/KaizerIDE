@@ -645,14 +645,29 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     const registerIncludeDefinitionProvider = (languageId) => {
       monaco.languages.registerDefinitionProvider(languageId, {
         provideDefinition: async (model, position) => {
-          const line = model.getLineContent(position.lineNumber);
-          const includeMatch = line.match(/#include\s+["<]([^">]+)[">]/);
+          console.log('[Include Navigation] provideDefinition called');
+          console.log('[Include Navigation] Language:', languageId);
+          console.log('[Include Navigation] Position:', position);
           
-          if (!includeMatch) return null;
+          const line = model.getLineContent(position.lineNumber);
+          console.log('[Include Navigation] Line content:', line);
+          
+          const includeMatch = line.match(/#include\s+["<]([^">]+)[">]/);
+          console.log('[Include Navigation] Include match:', includeMatch);
+          
+          if (!includeMatch) {
+            console.log('[Include Navigation] No include statement found');
+            return null;
+          }
           
           const includedFile = includeMatch[1];
+          console.log('[Include Navigation] Included file:', includedFile);
+          
           const currentFilePath = model.uri.path;
+          console.log('[Include Navigation] Current file path:', currentFilePath);
+          
           const currentDir = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+          console.log('[Include Navigation] Current directory:', currentDir);
           
           // Try to resolve the file path
           let targetPath;
@@ -667,13 +682,18 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
           
           // Convert to Windows path format
           targetPath = targetPath.replace(/\//g, '\\');
+          console.log('[Include Navigation] Target path:', targetPath);
           
           // Check if cursor is on the filename
           const startIdx = line.indexOf(includedFile);
           const endIdx = startIdx + includedFile.length;
           const cursorIdx = position.column - 1;
           
+          console.log('[Include Navigation] Cursor check - startIdx:', startIdx, 'endIdx:', endIdx, 'cursorIdx:', cursorIdx);
+          
           if (cursorIdx >= startIdx && cursorIdx <= endIdx) {
+            console.log('[Include Navigation] Cursor is on filename, dispatching event');
+            
             // Dispatch event to open the file
             window.dispatchEvent(new CustomEvent('kaizer:open-include-file', {
               detail: { path: targetPath, originalPath: currentFilePath }
@@ -682,6 +702,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
             return null; // Return null since we're handling it via event
           }
           
+          console.log('[Include Navigation] Cursor not on filename');
           return null;
         }
       });

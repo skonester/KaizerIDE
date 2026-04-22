@@ -291,23 +291,42 @@ function App() {
     };
 
     const handleOpenIncludeFile = async (event) => {
+      console.log('[App] handleOpenIncludeFile called');
+      console.log('[App] Event detail:', event.detail);
+      
       const { path, originalPath } = event.detail;
+      console.log('[App] Path:', path);
+      console.log('[App] Original path:', originalPath);
       
       // Try to resolve the path relative to the current file's directory
       const currentDir = originalPath.substring(0, originalPath.lastIndexOf('\\'));
+      console.log('[App] Current directory:', currentDir);
+      
       let targetPath = path;
       
       // If path doesn't start with drive letter, make it relative to current directory
       if (!path.match(/^[A-Z]:\\/)) {
         targetPath = `${currentDir}\\${path}`;
+        console.log('[App] Resolved relative path to:', targetPath);
       }
       
+      console.log('[App] Final target path:', targetPath);
+      
       // Check if file exists and open it
-      const info = await window.electron.getFileInfo(targetPath);
-      if (info && !info.isDirectory) {
-        await handleFileOpen(targetPath);
-      } else {
-        setErrorMessage(`Could not find include file: ${path}`);
+      try {
+        const info = await window.electron.getFileInfo(targetPath);
+        console.log('[App] File info:', info);
+        
+        if (info && !info.isDirectory) {
+          console.log('[App] Opening file:', targetPath);
+          await handleFileOpen(targetPath);
+        } else {
+          console.log('[App] File not found or is directory');
+          setErrorMessage(`Could not find include file: ${path}`);
+        }
+      } catch (error) {
+        console.error('[App] Error checking file:', error);
+        setErrorMessage(`Error opening include file: ${error.message}`);
       }
     };
 
