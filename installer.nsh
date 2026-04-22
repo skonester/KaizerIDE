@@ -1,4 +1,8 @@
-; Custom NSIS script for KaizerIDE context menu integration
+; Custom NSIS script for KaizerIDE context menu integration and dark mode
+
+; Dark mode installer theme
+!define MUI_BGCOLOR 0x1a1a1a
+!define MUI_TEXTCOLOR 0xffffff
 
 ; Add "Open with KaizerIDE" to context menu for files
 !macro customInstall

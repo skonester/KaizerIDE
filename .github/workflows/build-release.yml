@@ -22,16 +22,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
       
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (fast)
+        run: npm ci --prefer-offline --no-audit
       
-      - name: Build Vite app
+      - name: Build Vite app (production)
         run: npm run build
+        env:
+          NODE_ENV: production
       
-      - name: Build Electron app
+      - name: Build Electron app (optimized)
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          ELECTRON_BUILDER_COMPRESSION_LEVEL: 0
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -39,7 +43,6 @@ jobs:
           name: KaizerIDE-Windows-x64
           path: |
             release/*.exe
-            release/*.zip
           retention-days: 30
       
       - name: Create Release
@@ -48,7 +51,6 @@ jobs:
         with:
           files: |
             release/*.exe
-            release/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true

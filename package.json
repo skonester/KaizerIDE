@@ -70,6 +70,13 @@
       "allowElevation": true,
       "installerIcon": "images/logo.png",
       "uninstallerIcon": "images/logo.png",
+      "installerHeader": "images/logo.png",
+      "installerSidebar": "images/logo.png",
+      "uninstallerSidebar": "images/logo.png",
+      "installerHeaderIcon": "images/logo.png",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "menuCategory": true,
       "include": "installer.nsh"
     },
     "fileAssociations": [
