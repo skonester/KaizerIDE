@@ -27,6 +27,29 @@
 - 🔧 **Fully Customizable** - OpenAI-compatible API support (use any model)
 - 📦 **Zero Config** - Download, install, and start coding immediately
 - 🆓 **Open Source** - Free forever, community-driven
+- 🔒 **Privacy First** - Zero telemetry, no data collection, no tracking
+
+## 🔐 Privacy & Security
+
+**Your code stays on your machine.**
+
+- ✅ **No Telemetry** - We don't collect usage data, crash reports, or analytics
+- ✅ **No Tracking** - No user tracking, no cookies, no third-party services
+- ✅ **No Account Required** - Use it completely offline (except AI API calls)
+- ✅ **Your API Keys** - Stored locally, never sent to our servers (we don't have any!)
+- ✅ **Open Source** - Audit the code yourself, see exactly what it does
+
+**Unlike Cursor, VS Code, or other IDEs:**
+- No telemetry sent to Microsoft, GitHub, or any company
+- No "anonymous" usage statistics
+- No automatic error reporting
+- No cloud sync that uploads your code
+- Complete control over your data
+
+**AI Privacy:**
+- AI requests go directly to YOUR chosen API endpoint
+- We never see your code or prompts
+- Use local models (Ollama, LM Studio) for complete offline privacy
 
 ## 🎯 Features
 
