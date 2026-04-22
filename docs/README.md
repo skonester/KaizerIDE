@@ -73,18 +73,55 @@
 
 ## 🔐 Privacy & Security
 
-**Your code stays on your machine.**
+**Your code stays on your machine. Period.**
 
-- ✅ **No Telemetry** - Zero data collection, analytics, or tracking
-- ✅ **No Account Required** - Use completely offline (except AI API calls)
-- ✅ **Local Storage** - All settings and data stored on your device
-- ✅ **Open Source** - Audit the code yourself
-- ✅ **Your API Keys** - Stored locally, never sent to our servers
+KaizerIDE is built with privacy as a core principle, not an afterthought. We believe your code, your projects, and your workflow are yours alone.
 
-**AI Privacy:**
-- AI requests go directly to YOUR chosen API endpoint
-- We never see your code or prompts
-- Use local models for complete privacy
+### What We DON'T Do
+
+- ❌ **No Telemetry** - We don't collect usage data, crash reports, or analytics
+- ❌ **No Tracking** - No user tracking, cookies, or third-party services
+- ❌ **No Cloud Sync** - Your code never gets uploaded to our servers (we don't have any!)
+- ❌ **No Account Required** - Use it completely offline, no sign-up needed
+- ❌ **No "Anonymous" Data** - We don't collect anything, period
+
+### What We DO
+
+- ✅ **Local Storage** - All settings, files, and data stay on your device
+- ✅ **Open Source** - Audit the code yourself, see exactly what it does
+- ✅ **Your API Keys** - Stored locally in your system, never transmitted to us
+- ✅ **Direct AI Calls** - AI requests go straight to YOUR chosen endpoint
+- ✅ **Offline Capable** - Works without internet (except for AI features)
+
+### AI Privacy
+
+When you use AI features:
+- 🔒 Requests go **directly** to your chosen API endpoint (OpenAI, Ollama, etc.)
+- 🔒 We **never** see your code, prompts, or responses
+- 🔒 Use **local models** (Ollama, LM Studio) for complete offline privacy
+- 🔒 **You control** what data leaves your machine
+
+### KaizerIDE vs Other IDEs
+
+| Feature | KaizerIDE | VS Code | Cursor | GitHub Copilot |
+|---------|-----------|---------|--------|----------------|
+| **Telemetry** | ❌ None | ✅ Yes (opt-out) | ✅ Yes | ✅ Yes |
+| **Usage Tracking** | ❌ None | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | ✅ Yes |
+| **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
+| **Code Sent to Servers** | ❌ Never | ⚠️ For features | ✅ Yes | ✅ Yes |
+| **Local AI Support** | ✅ Yes | ⚠️ Limited | ❌ No | ❌ No |
+| **Open Source** | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
+| **Self-Hosted AI** | ✅ Yes | ⚠️ Limited | ❌ No | ❌ No |
+
+### Why This Matters
+
+- **For Professionals** - Work on sensitive projects without worrying about data leaks
+- **For Students** - Learn without being tracked or profiled
+- **For Teams** - Keep proprietary code completely private
+- **For Everyone** - Your data is yours, not a product to be sold
+
+**Bottom Line:** If privacy matters to you, KaizerIDE is built for you.
 
 ---
 
