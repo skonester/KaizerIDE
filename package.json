@@ -40,9 +40,15 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*",
+      "!src/**/*",
+      "!.github/**/*",
+      "!*.md",
+      "!images/Preview*.png"
     ],
-    "compression": "normal",
+    "asarUnpack": [],
+    "compression": "maximum",
     "win": {
       "icon": "images/logo.ico",
       "target": [
