@@ -65,8 +65,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "KaizerIDE",
-      "perMachine": false,
-      "allowElevation": true
+      "perMachine": true,
+      "allowElevation": true,
+      "installerIcon": "images/logo.png",
+      "uninstallerIcon": "images/logo.png",
+      "include": "installer.nsh"
     },
     "fileAssociations": [
       {
