@@ -40,17 +40,27 @@ function App() {
   const [filePickerMode, setFilePickerMode] = useState('attach'); // 'attach' or 'folder'
   const [showHelpModal, setShowHelpModal] = useState(false);
 
+  // Utility: Normalize file paths to use consistent separators (Windows backslashes)
+  const normalizePath = (path) => {
+    if (!path) return path;
+    return path.replace(/\//g, '\\');
+  };
+
+  // Debounce tracker for handleOpenPath
+  const lastOpenPathCall = React.useRef({ path: null, timestamp: 0 });
+
   // Helper function to open a file in the editor
   const handleFileOpen = async (filePath, options = {}) => {
-    const existingTab = tabs.find(tab => tab.path === filePath);
+    const normalizedPath = normalizePath(filePath);
+    const existingTab = tabs.find(tab => tab.path === normalizedPath);
     
     if (existingTab) {
-      setActiveTabPath(filePath);
+      setActiveTabPath(normalizedPath);
       
       // If diff view is requested, update the tab with diff info
       if (options.showDiff && options.newContent) {
         setTabs(prev => prev.map(tab => 
-          tab.path === filePath 
+          tab.path === normalizedPath 
             ? { 
                 ...tab, 
                 showDiff: true, 
@@ -64,12 +74,12 @@ function App() {
       return;
     }
 
-    const result = await window.electron.readFile(filePath);
+    const result = await window.electron.readFile(normalizedPath);
     
     if (result.success) {
-      const fileName = filePath.split(/[\\/]/).pop();
+      const fileName = normalizedPath.split(/[\\/]/).pop();
       const newTab = {
-        path: filePath,
+        path: normalizedPath,
         name: fileName,
         content: result.content,
         dirty: false,
@@ -80,41 +90,58 @@ function App() {
       };
       
       setTabs(prev => [...prev, newTab]);
-      setActiveTabPath(filePath);
+      setActiveTabPath(normalizedPath);
     }
   };
 
   // Helper function to handle paths from context menu
-  const handleOpenPath = async (p) => {
+  const handleOpenPath = async (p, options = {}) => {
     if (!p) return;
     
+    const normalizedPath = normalizePath(p);
+    
+    // Debounce: prevent duplicate calls within 100ms
+    const now = Date.now();
+    if (lastOpenPathCall.current.path === normalizedPath && 
+        now - lastOpenPathCall.current.timestamp < 100) {
+      console.log('[App] Debounced duplicate handleOpenPath call for:', normalizedPath);
+      return;
+    }
+    lastOpenPathCall.current = { path: normalizedPath, timestamp: now };
+    
     // Check if path is file or folder
-    const info = await window.electron.getFileInfo(p);
+    const info = await window.electron.getFileInfo(normalizedPath);
     
     if (info.isDirectory) {
       // Open as workspace
-      console.log('[App] Opening folder as workspace:', p);
-      setWorkspacePath(p);
-      await window.electron.saveWorkspacePath(p);
+      console.log('[App] Opening folder as workspace:', normalizedPath);
+      setWorkspacePath(normalizedPath);
+      await window.electron.saveWorkspacePath(normalizedPath);
       
-      const tree = await window.electron.getFileTree(p);
+      const tree = await window.electron.getFileTree(normalizedPath);
       if (tree.success) {
         window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
       }
     } else {
-      // It's a file — open its parent as workspace, then open the file in editor
-      console.log('[App] Opening file:', p);
-      const parentDir = p.split(/[\\/]/).slice(0, -1).join('\\') || p;
-      setWorkspacePath(parentDir);
-      await window.electron.saveWorkspacePath(parentDir);
+      // It's a file
+      console.log('[App] Opening file:', normalizedPath);
       
-      const tree = await window.electron.getFileTree(parentDir);
-      if (tree.success) {
-        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      // If fileOnly mode, just open the file without loading workspace
+      if (options.fileOnly) {
+        await handleFileOpen(normalizedPath);
+      } else {
+        // Legacy behavior: open parent as workspace, then open the file
+        const parentDir = normalizedPath.split(/[\\/]/).slice(0, -1).join('\\') || normalizedPath;
+        setWorkspacePath(parentDir);
+        await window.electron.saveWorkspacePath(parentDir);
+        
+        const tree = await window.electron.getFileTree(parentDir);
+        if (tree.success) {
+          window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+        }
+        
+        await handleFileOpen(normalizedPath);
       }
-      
-      // Open the file in a tab
-      await handleFileOpen(p);
     }
   };
 
@@ -144,8 +171,10 @@ function App() {
     loadWorkspace();
   }, []);
 
-  // Handle context menu integration - open files/folders from Windows Explorer
+  // Handle context menu integration - consolidated single listener
   useEffect(() => {
+    let cleanupCallback = null;
+
     async function checkOpenPath() {
       if (!window.electron) return;
       
@@ -153,8 +182,7 @@ function App() {
       const startupPath = await window.electron.getOpenPath();
       if (startupPath) {
         console.log('[App] Received path from context menu:', startupPath);
-        await handleOpenPath(startupPath);
-        return;
+        await handleOpenPath(startupPath, { fileOnly: true });
       }
     }
     
@@ -162,13 +190,18 @@ function App() {
 
     // Method 2: listen for paths sent after startup (second instance)
     if (window.electron?.onOpenPath) {
-      const cleanup = window.electron.onOpenPath((p) => {
+      cleanupCallback = window.electron.onOpenPath((p) => {
         console.log('[App] Received path from second instance:', p);
-        handleOpenPath(p);
+        handleOpenPath(p, { fileOnly: true });
       });
-      return cleanup;
     }
-  }, [handleOpenPath]);
+
+    return () => {
+      if (cleanupCallback) {
+        cleanupCallback();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -281,11 +314,12 @@ function App() {
   };
 
   const handleTabClose = (path) => {
+    const normalizedPath = normalizePath(path);
     setTabs(prevTabs => {
-      const tabIndex = prevTabs.findIndex(tab => tab.path === path);
-      const newTabs = prevTabs.filter(tab => tab.path !== path);
+      const tabIndex = prevTabs.findIndex(tab => tab.path === normalizedPath);
+      const newTabs = prevTabs.filter(tab => tab.path !== normalizedPath);
 
-      if (activeTabPath === path) {
+      if (activeTabPath === normalizedPath) {
         if (newTabs.length > 0) {
           const newActiveIndex = Math.min(tabIndex, newTabs.length - 1);
           setActiveTabPath(newTabs[newActiveIndex].path);
