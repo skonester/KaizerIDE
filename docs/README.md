@@ -103,46 +103,52 @@ When you use AI features:
 
 ### KaizerIDE vs Other IDEs
 
-| Feature | KaizerIDE | VS Code | Cursor | GitHub Copilot |
-|---------|-----------|---------|--------|----------------|
+| Feature | KaizerIDE | VS Code | Cursor | Windsurf |
+|---------|-----------|---------|--------|----------|
 | **Telemetry** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (configurable) | ✅ Yes |
 | **Usage Tracking** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (privacy mode available) | ✅ Yes |
-| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | N/A |
+| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | ✅ Yes |
 | **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
-| **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes |
-| **Local AI Support** | ✅ Full (Ollama, LM Studio) | ✅ Full (via extensions) | ❌ Cloud-only** | ❌ Cloud-only |
-| **Open Source** | ✅ Yes | ✅ Core (MIT) | ❌ No (proprietary) | ❌ No |
-| **Self-Hosted AI** | ✅ Yes | ✅ Yes (via extensions) | ⚠️ Limited | ❌ No |
-| **Bring Your Own API** | ✅ Yes (direct) | ✅ Yes (via extensions) | ✅ Yes (via Cursor servers) | ❌ No |
+| **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes (for AI features) |
+| **Local AI Support** | ✅ Full (Ollama, LM Studio) | ✅ Full (via extensions) | ⚠️ Limited (via Cursor Pro) | ⚠️ Limited |
+| **Open Source** | ✅ Yes | ✅ Core (MIT) | ❌ No (proprietary) | ❌ No (proprietary) |
+| **Self-Hosted AI** | ✅ Yes | ✅ Yes (via extensions) | ⚠️ Limited (via Cursor Pro) | ⚠️ Enterprise only |
+| **Bring Your Own API** | ✅ Yes (direct) | ✅ Yes (via extensions) | ⚠️ Limited (via Cursor Pro) | ✅ Yes (via Windsurf servers) |
 
 **\*Except when you use AI features - those go to YOUR chosen endpoint**  
 **\*\*Cursor routes all requests through their servers, even with custom API keys**
 
 ### Why This Matters
 
-**The Key Difference:**
-- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint (no middleman)
-- **VS Code** - Flexible, can be fully local with the right extensions
-- **Cursor** - All AI requests route through Cursor's servers (even with your own API key)
-- **Copilot** - Locked to GitHub's cloud service
+**The Key Differences:**
+
+- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint. Zero telemetry, zero tracking, always.
+- **VS Code** - Highly flexible. Can be fully local and private with the right extensions (like Continue + Ollama).
+- **Windsurf** - Powerful AI features but routes requests through their servers. Enterprise plans offer self-hosted options.
+- **Cursor** - Polished UX but all AI requests go through Cursor's servers, even with your own API key.
 
 **Choose KaizerIDE if:**
 - You want **zero telemetry** by default (not opt-out)
 - You need **direct API connections** without intermediaries
-- You value **simplicity** over enterprise features
-- You want a **lightweight** alternative to heavy IDEs
+- You value **simplicity** and **lightweight** design
+- You want privacy without enterprise pricing
 
 **Choose VS Code if:**
 - You need the **largest extension ecosystem**
 - You want **maximum flexibility** and customization
-- You're comfortable managing privacy settings yourself
+- You're comfortable configuring privacy settings
+
+**Choose Windsurf if:**
+- You want **powerful agentic AI** (Cascade)
+- You're willing to use their cloud or pay for self-hosted
+- You need enterprise features and support
 
 **Choose Cursor if:**
-- You want **polished AI UX** and don't mind cloud dependency
+- You want the **most polished AI UX**
+- You don't mind cloud dependency
 - You're willing to pay for Pro features
-- You trust their privacy mode implementation
 
-**Bottom Line:** KaizerIDE prioritizes privacy and simplicity. VS Code offers flexibility. Cursor offers polish but requires trust in their infrastructure.
+**Bottom Line:** KaizerIDE is for developers who want privacy-first AI coding without complexity or subscriptions.
 
 ---
 
