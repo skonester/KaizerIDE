@@ -79,6 +79,7 @@ jobs:
           git add package.json
           git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}" || echo "No changes to commit"
           git push || echo "Nothing to push"
+
   build-electron:
     runs-on: windows-latest
     needs: version
@@ -112,6 +113,7 @@ jobs:
           }
           # delete original junk outputs (prevents 2 files issue)
           Remove-Item release/*.exe -Force -ErrorAction SilentlyContinue
+
       - uses: actions/upload-artifact@v4
         with:
           name: electron-build
@@ -121,10 +123,10 @@ jobs:
     runs-on: windows-latest
     needs: [version, build-electron]
 
-        with:
-          fetch-depth: 0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -151,6 +153,7 @@ jobs:
           echo "changes<<EOF" >> $env:GITHUB_OUTPUT
           echo "$body" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
+
       # ---------------- RELEASE ----------------
       - name: Create Release
         uses: softprops/action-gh-release@v1
