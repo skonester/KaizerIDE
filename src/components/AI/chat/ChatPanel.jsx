@@ -617,6 +617,11 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           // Accumulate in ref
           streamingContentRef.current += token;
           
+          // Update DOM directly for streaming content
+          if (streamingDomRef.current) {
+            streamingDomRef.current.textContent = streamingContentRef.current;
+          }
+          
           // Update state periodically for ReactMarkdown rendering (every ~50 tokens or ~200 chars)
           if (streamingContentRef.current.length % 200 < token.length) {
             setMessages(prev => prev.map(m => m.id === currentMsgIdRef.current
