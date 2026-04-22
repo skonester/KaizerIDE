@@ -17,6 +17,10 @@ test
 !CHAT_REFACTOR_SUMMARY.md
 !TEST/README.md
 
+# GitHub workflow documentation (internal only)
+.github/WORKFLOW.md
+WORKFLOW.md
+
 # Wiki (local documentation only)
 docs/WIKI.md
 

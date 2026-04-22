@@ -2337,3 +2337,34 @@
   background: rgba(239, 68, 68, 0.1);
   color: rgb(239, 68, 68);
 }
+
+/* Plan loading indicator */
+.plan-loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-1);
+  margin: 8px 0;
+}
+
+.plan-loading-indicator .dots {
+  display: inline-block;
+  animation: dots 1.5s infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+.mode-option,
+.model-option {
+  display: flex;
+  align-items: center;
+}

@@ -716,3 +716,63 @@
   padding-right: 16px !important;
   user-select: none;
 }
+
+/* Inline code */
+.preview-inline-code {
+  padding: 3px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* Plan action buttons - floating on top right */
+.plan-action-buttons {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.plan-action-btn {
+  padding: 8px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-0);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.plan-action-btn:hover {
+  background: var(--bg-2);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.plan-action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.plan-action-btn:first-child {
+  background: linear-gradient(135deg, var(--accent) 0%, #9333ea 100%);
+  border-color: var(--accent);
+  color: white;
+}
+
+.plan-action-btn:first-child:hover {
+  background: linear-gradient(135deg, #9333ea 0%, var(--accent) 100%);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}

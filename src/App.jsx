@@ -256,10 +256,12 @@ function App() {
         });
       }
       
-      // Check if file is currently open in a tab
+      // Check if file is currently open in a tab (including preview tabs)
       const tab = tabs.find(t => t.path === path);
+      const previewTab = tabs.find(t => t.path === `${path}:preview`);
+      
       if (tab) {
-        // Update tab with diff view
+        // Update regular tab with diff view
         setTabs(prev => prev.map(t => 
           t.path === path ? { 
             ...t, 
@@ -274,7 +276,19 @@ function App() {
         
         // Make sure this tab is active so user sees the diff
         setActiveTabPath(path);
-      } else {
+      }
+      
+      // Update preview tab in real-time (for plan files)
+      if (previewTab) {
+        setTabs(prev => prev.map(t => 
+          t.path === `${path}:preview` ? { 
+            ...t, 
+            content: content // Update preview with new content in real-time
+          } : t
+        ));
+      }
+      
+      if (!tab && !previewTab) {
         // File not open, open it with diff view
         handleFileOpen(path, {
           showDiff: true,
@@ -356,9 +370,61 @@ function App() {
       }
     };
 
+    const handleOpenFile = async (e) => {
+      const { path, showPreview } = e.detail;
+      
+      if (!path) return;
+      
+      // Read file content
+      const result = await window.electron.readFile(path);
+      if (!result.success) {
+        setErrorMessage(`Failed to open file: ${result.error}`);
+        return;
+      }
+      
+      const fileName = path.split(/[\\/]/).pop();
+      
+      // If showPreview is true and it's a markdown file, ONLY open preview (not the source tab)
+      if (showPreview && path.endsWith('.md')) {
+        const previewPath = `${path}:preview`;
+        const previewExists = tabs.find(t => t.path === previewPath);
+        
+        if (!previewExists) {
+          setTabs(prev => [...prev, {
+            path: previewPath,
+            name: `${fileName} (Preview)`,
+            content: result.content,
+            dirty: false,
+            isPreview: true
+          }]);
+        }
+        setActiveTabPath(previewPath);
+        return;
+      }
+      
+      // Check if tab already exists
+      const existingTab = tabs.find(t => t.path === path);
+      if (existingTab) {
+        setActiveTabPath(path);
+        return;
+      }
+      
+      // Add new tab
+      const newTab = {
+        path,
+        name: fileName,
+        content: result.content,
+        dirty: false
+      };
+      
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabPath(path);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('kaizer:file-written', handleFileWritten);
     window.addEventListener('kaizer:open-filepicker', handleOpenFilePicker);
+    window.addEventListener('kaizer:open-file', handleOpenFile);
     window.addEventListener('kaizer:open-preview', handleOpenPreview);
     window.addEventListener('kaizer:open-include-file', handleOpenIncludeFile);
     window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
@@ -368,6 +434,7 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
       window.removeEventListener('kaizer:open-filepicker', handleOpenFilePicker);
+      window.removeEventListener('kaizer:open-file', handleOpenFile);
       window.removeEventListener('kaizer:open-preview', handleOpenPreview);
       window.removeEventListener('kaizer:open-include-file', handleOpenIncludeFile);
       window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);

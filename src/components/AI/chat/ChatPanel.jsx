@@ -482,17 +482,51 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       });
     };
 
+    const handleImprovePlan = (e) => {
+      const { planPath, planContent } = e.detail;
+      
+      // Add the plan file as context instead of pasting content
+      setContextPills(prev => [...prev, {
+        id: Date.now(),
+        type: 'file',
+        data: planPath
+      }]);
+      
+      setInput(`Improve the plan in this file. Focus on making it more detailed, actionable, and comprehensive.`);
+      setCurrentMode('plan');
+      textareaRef.current?.focus();
+    };
+
+    const handleAskAboutPlan = (e) => {
+      const { planPath, planContent } = e.detail;
+      
+      // Add the plan file as context instead of pasting content
+      setContextPills(prev => [...prev, {
+        id: Date.now(),
+        type: 'file',
+        data: planPath
+      }]);
+      
+      setInput(`I have questions about this plan:`);
+      setCurrentMode('ask');
+      textareaRef.current?.focus();
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('kaizer:attach-context', handleAttachContext);
     window.addEventListener('kaizer:paste-to-chat', handlePasteToChat);
     window.addEventListener('kaizer:request-command-permission', handleCommandPermission);
     window.addEventListener('kaizer:file-written', handleFileWritten);
+    window.addEventListener('kaizer:improve-plan', handleImprovePlan);
+    window.addEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('kaizer:attach-context', handleAttachContext);
       window.removeEventListener('kaizer:paste-to-chat', handlePasteToChat);
       window.removeEventListener('kaizer:request-command-permission', handleCommandPermission);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
+      window.removeEventListener('kaizer:improve-plan', handleImprovePlan);
+      window.removeEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     };
   }, [showContextMenu, showModeMenu, showModelMenu, autoApproveCommands]);
 
@@ -618,6 +652,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         workspacePath,
         activeFile,
         activeFileContent,
+        mode: currentMode, // Pass the selected mode (agent/plan/ask/fixer)
         onToken: (token) => {
           streamingMsgRef.current.content += token;
           updateStreaming({ content: streamingMsgRef.current.content });
@@ -721,15 +756,18 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           clearTimeout(streamingUpdateTimer.current);
           streamingUpdateTimer.current = null;
           
-          // Commit streaming message to messages
-          const finalMsg = {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: streamingMsgRef.current.content,
-            thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
-          };
+          // Commit streaming message to messages (only if exists)
+          if (streamingMsgRef.current) {
+            const finalMsg = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: streamingMsgRef.current.content || '',
+              thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
+            };
+            
+            setMessages(prev => [...prev, finalMsg]);
+          }
           
-          setMessages(prev => [...prev, finalMsg]);
           setStreamingMsg(null);
           setIsStreaming(false);
           setIsAgentRunning(false);
@@ -1073,6 +1111,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       case 'agent': return '∞';
       case 'plan': return '📋';
       case 'ask': return '💬';
+      case 'fixer': return '🔧';
       default: return '∞';
     }
   };
@@ -1082,6 +1121,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       case 'agent': return 'Agent';
       case 'plan': return 'Plan';
       case 'ask': return 'Ask';
+      case 'fixer': return 'Fixer';
       default: return 'Agent';
     }
   };
@@ -1681,6 +1721,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     <div className={`mode-option ${currentMode === 'ask' ? 'active' : ''}`} onClick={() => { setCurrentMode('ask'); setShowModeMenu(false); }}>
                       <span>💬 Ask</span>
                       {currentMode === 'ask' && <span className="checkmark">✓</span>}
+                    </div>
+                    <div className={`mode-option ${currentMode === 'fixer' ? 'active' : ''}`} onClick={() => { setCurrentMode('fixer'); setShowModeMenu(false); }}>
+                      <span>🔧 Fixer</span>
+                      {currentMode === 'fixer' && <span className="checkmark">✓</span>}
                     </div>
                   </div>
                 )}

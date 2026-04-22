@@ -76,6 +76,9 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   
   // Check if current tab is a preview
   const isPreviewTab = activeTab && activeTab.includes(':preview');
+  
+  // Check if current tab is a plan.md preview (not the regular .md tab)
+  const isPlanPreview = isPreviewTab && activeTab.toLowerCase().includes('plan-') && activeTab.includes('.md:preview');
 
   // Diff lines algorithm
   const diffLines = (oldContent, newContent) => {
@@ -1270,6 +1273,34 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
               </>
             )}
           </>
+        )}
+        
+        {/* Floating action buttons for plan.md preview files */}
+        {isPlanPreview && activeTabData && (
+          <div className="plan-action-buttons">
+            <button 
+              className="plan-action-btn"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('kaizer:improve-plan', {
+                  detail: { planPath: activeTab, planContent: activeTabData.content }
+                }));
+              }}
+              title="Improve Plan"
+            >
+              ✨ Improve Plan
+            </button>
+            <button 
+              className="plan-action-btn"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('kaizer:ask-about-plan', {
+                  detail: { planPath: activeTab, planContent: activeTabData.content }
+                }));
+              }}
+              title="Ask Questions"
+            >
+              💬 Ask Questions
+            </button>
+          </div>
         )}
       </div>
 

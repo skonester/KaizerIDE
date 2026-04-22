@@ -1,9 +1,15 @@
 import { indexer } from '../indexer';
+import { RetryPolicy } from './reliability/RetryPolicy';
+import { ErrorHandler } from './reliability/ErrorHandler';
+
+// Create retry policy and error handler for tool execution
+const retryPolicy = RetryPolicy.getPolicy('FAST');
+const errorHandler = new ErrorHandler();
 
 /**
- * Execute a tool call via Electron IPC
+ * Execute a tool call via Electron IPC with retry logic
  */
-export async function executeTool(toolName, args, workspacePath) {
+export async function executeTool(toolName, args, workspacePath, context = {}) {
   // Simple path joining for browser context
   const joinPath = (base, relative) => {
     if (!base) return relative;
@@ -12,22 +18,24 @@ export async function executeTool(toolName, args, workspacePath) {
     return base.endsWith(separator) ? base + relative : base + separator + relative;
   };
   
-  switch (toolName) {
-    case 'read_file': {
-      const fullPath = workspacePath 
-        ? joinPath(workspacePath, args.path)
-        : args.path;
-      console.log('[Agent] read_file called for:', fullPath);
-      const result = await window.electron.readFile(fullPath);
-      console.log('[Agent] read_file result:', { success: result?.success, hasContent: result?.content !== null && result?.content !== undefined, error: result?.error });
-      if (result.success && result.content !== null && result.content !== undefined) {
-        return result.content;
-      } else {
-        const errorMsg = `Error reading file: ${result.error || 'File content is empty or null'}`;
-        console.error('[Agent]', errorMsg, 'Path:', fullPath);
-        return errorMsg;
+  // Wrap tool execution with retry logic for transient failures
+  const executeWithRetry = async (attemptNumber) => {
+    switch (toolName) {
+      case 'read_file': {
+        const fullPath = workspacePath 
+          ? joinPath(workspacePath, args.path)
+          : args.path;
+        console.log('[Agent] read_file called for:', fullPath);
+        const result = await window.electron.readFile(fullPath);
+        console.log('[Agent] read_file result:', { success: result?.success, hasContent: result?.content !== null && result?.content !== undefined, error: result?.error });
+        if (result.success && result.content !== null && result.content !== undefined) {
+          return result.content;
+        } else {
+          const errorMsg = `Error reading file: ${result.error || 'File content is empty or null'}`;
+          console.error('[Agent]', errorMsg, 'Path:', fullPath);
+          throw new Error(errorMsg);
+        }
       }
-    }
     
     case 'write_file': {
       const fullPath = workspacePath 
@@ -126,6 +134,17 @@ export async function executeTool(toolName, args, workspacePath) {
     }
     
     default:
-      return `Unknown tool: ${toolName}`;
+      throw new Error(`Unknown tool: ${toolName}`);
+  }
+  };
+
+  // Execute with retry logic for transient failures
+  try {
+    return await retryPolicy.execute(executeWithRetry, { errorHandler });
+  } catch (error) {
+    // Format error message for user
+    const formattedError = errorHandler.formatErrorMessage(error);
+    console.error('[Agent] Tool execution failed after retries:', toolName, error);
+    return formattedError;
   }
 }

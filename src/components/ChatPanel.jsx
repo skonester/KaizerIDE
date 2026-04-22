@@ -615,6 +615,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         workspacePath,
         activeFile,
         activeFileContent,
+        mode: selectedMode, // Pass the selected mode (agent/planner/ask/fixer)
         onToken: (token) => {
           // Accumulate in ref
           streamingContentRef.current += token;
