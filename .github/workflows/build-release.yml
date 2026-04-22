@@ -116,6 +116,13 @@ jobs:
             release/*.exe
           retention-days: 30
       
+      - name: Delete existing release if exists
+        run: |
+          $tag = "${{ steps.package_version.outputs.tag }}"
+          gh release delete $tag --yes 2>$null || echo "No existing release to delete"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
