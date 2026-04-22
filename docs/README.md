@@ -20,12 +20,16 @@
 
 ## ✨ Features
 
+> 📸 **[View Screenshots](SCREENSHOTS.md)** - See KaizerIDE in action with detailed visual examples
+
 ### 🤖 AI-Powered Coding Assistant
+- **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
 - **Context-Aware Chat** - AI understands your entire project structure
 - **Tool Calling** - AI can read files, search code, and analyze your workspace
 - **Multi-Model Support** - Works with any OpenAI-compatible API (Claude, GPT, local models)
 - **Streaming Responses** - Real-time AI responses with syntax highlighting
 - **Code Context Pills** - Attach files, folders, or selections to your prompts
+- **Planning System** - Create detailed implementation plans with real-time preview
 
 ### 💻 Modern Code Editor
 - **Monaco Editor** - The same powerful editor from VS Code
