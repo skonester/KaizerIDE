@@ -147,6 +147,7 @@ KaizerIDE is built for teams that require **control over convenience trade-offs*
 | **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | ✅ Yes |
 | **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
 | **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes (for AI features) |
+| **Workspace Indexing** | ✅ Local (no AI needed) | ⚠️ Manual search | ✅ Semantic AI (vector embeddings) | ✅ RAG-based AI (automatic) |
 | **Local AI Support** | ✅ Yes | ✅ Full | ⚠️ Limited (via Cursor Pro) | ⚠️ Limited |
 | **Open Source** | ✅ Yes | ✅ Yes | ❌ No (proprietary) | ❌ No (proprietary) |
 | **Self-Hosted AI** | ✅ Yes | ✅ Yes | ⚠️ Limited (via Cursor Pro) | ⚠️ Enterprise only |
@@ -159,16 +160,17 @@ KaizerIDE is built for teams that require **control over convenience trade-offs*
 
 **The Key Differences:**
 
-- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint. Zero telemetry, zero tracking, always.
-- **VS Code** - Highly flexible. Can be fully local and private with the right extensions (like Continue + Ollama).
-- **Windsurf** - Powerful AI features but routes requests through their servers. Enterprise plans offer self-hosted options.
-- **Cursor** - Polished UX but all AI requests go through Cursor's servers, even with your own API key.
+- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint. Zero telemetry, zero tracking, always. **Local workspace indexing** means instant codebase understanding without AI or cloud dependency. Uses simple regex-based symbol extraction and file metadata—fast, private, and works offline.
+- **VS Code** - Highly flexible. Can be fully local and private with the right extensions (like Continue + Ollama). No built-in workspace indexing.
+- **Windsurf** - Powerful AI features with **AI-driven RAG indexing** that automatically scans your entire codebase, builds vector embeddings, and uses retrieval-augmented generation. The Cascade agent continuously pulls relevant context from your repo. More passive—AI decides what matters.
+- **Cursor** - Polished UX with **semantic AI indexing** that splits your code into chunks (functions, classes, files), embeds them into a vector index, and enables multi-file reasoning. Composer uses full-project embeddings for "Explain my project" and "Where is auth handled?" queries. Strong AI codebase understanding as a core feature.
 
 **Choose KaizerIDE if:**
 - You want **zero telemetry** by default (not opt-out)
 - You need **direct API connections** without intermediaries
 - You value **simplicity** and **lightweight** design
 - You want privacy without enterprise pricing
+- You need **local workspace indexing** that works offline without AI
 
 **Choose VS Code if:**
 - You need the **largest extension ecosystem**
@@ -179,13 +181,15 @@ KaizerIDE is built for teams that require **control over convenience trade-offs*
 - You want **powerful agentic AI** (Cascade)
 - You're willing to use their cloud or pay for self-hosted
 - You need enterprise features and support
+- You want **AI-driven RAG indexing** that automatically understands your entire codebase
 
 **Choose Cursor if:**
 - You want the **most polished AI UX**
 - You don't mind cloud dependency
 - You're willing to pay for Pro features
+- You want **semantic vector indexing** with multi-file reasoning and "Explain my project" capabilities
 
-**Bottom line:** KaizerIDE is for developers who want **local-first AI coding with no telemetry, no required accounts, and no outbound data by default**.
+**Bottom line:** KaizerIDE is for developers who want **local-first AI coding with no telemetry, no required accounts, and no outbound data by default**. Our workspace indexing runs entirely on your machine—no AI, no cloud, no vector embeddings—just fast local symbol extraction and file metadata. Cursor and Windsurf offer more powerful AI-driven semantic understanding, but at the cost of sending your code to their servers.
 
 ---
 
