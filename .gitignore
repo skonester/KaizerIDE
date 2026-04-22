@@ -20,5 +20,9 @@ test
 
 # OS files
 .DS_Store
+
+# Local development scripts
 build.bat
 start.bat
+start-quick.bat
+start-dev.bat
