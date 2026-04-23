@@ -88,3 +88,28 @@
     transform: scale(1.2);
   }
 }
+
+/* SSH Status Indicator */
+.status-ssh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ssh-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.ssh-text {
+  font-size: 10px;
+  color: #10b981;
+  font-weight: 500;
+}

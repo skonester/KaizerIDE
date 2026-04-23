@@ -43,7 +43,8 @@ export class FileReader {
         indexed: Date.now()
       });
 
-      indexStore.add(indexedFile);
+      // Use updateFile instead of add to support incremental updates
+      indexStore.updateFile(filePath, indexedFile);
     } catch (e) {
       // Skip files that can't be read
     }

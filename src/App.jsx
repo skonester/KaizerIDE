@@ -9,6 +9,7 @@ import SettingsModal from './components/Modals/SettingsModal';
 import ErrorToast from './components/Common/ErrorToast';
 import FilePicker from './components/Common/FilePicker';
 import HelpModal from './components/UI/HelpModal';
+import RemoteConnectionModal from './components/Modals/RemoteConnectionModal';
 import { indexer } from './lib/indexer';
 import './App.css';
 
@@ -42,6 +43,8 @@ function App() {
   const [filePickerMode, setFilePickerMode] = useState('attach'); // 'attach' or 'folder'
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [terminalVisible, setTerminalVisible] = useState(false);
+  const [showSSHModal, setShowSSHModal] = useState(false);
+  const [sshConnection, setSSHConnection] = useState(null);
 
   // Utility: Normalize file paths to use consistent separators (Windows backslashes)
   const normalizePath = (path) => {
@@ -54,7 +57,8 @@ function App() {
 
   // Helper function to open a file in the editor
   const handleFileOpen = async (filePath, options = {}) => {
-    const normalizedPath = normalizePath(filePath);
+    // Don't normalize remote paths (they use forward slashes)
+    const normalizedPath = sshConnection ? filePath : normalizePath(filePath);
     const existingTab = tabs.find(tab => tab.path === normalizedPath);
     
     if (existingTab) {
@@ -77,7 +81,10 @@ function App() {
       return;
     }
 
-    const result = await window.electron.readFile(normalizedPath);
+    // Use remote or local file reading based on SSH connection
+    const result = sshConnection 
+      ? await window.electron.readRemoteFile(normalizedPath)
+      : await window.electron.readFile(normalizedPath);
     
     if (result.success) {
       const fileName = normalizedPath.split(/[\\/]/).pop();
@@ -89,7 +96,8 @@ function App() {
         showDiff: options.showDiff || false,
         newContent: options.newContent || null,
         changeType: options.changeType || null,
-        originalContent: result.content
+        originalContent: result.content,
+        isRemote: !!sshConnection
       };
       
       setTabs(prev => [...prev, newTab]);
@@ -201,6 +209,8 @@ function App() {
   // Handle context menu integration - consolidated single listener
   useEffect(() => {
     let cleanupCallback = null;
+    let fileSystemCleanup = null;
+    let sshModalCleanup = null;
 
     async function checkOpenPath() {
       if (!window.electron) return;
@@ -223,12 +233,67 @@ function App() {
       });
     }
 
+    // Method 3: listen for file system changes and update file tree
+    if (window.electron?.onFileSystemChanged) {
+      fileSystemCleanup = window.electron.onFileSystemChanged((data) => {
+        console.log('[App] File system changed, refreshing tree and index');
+        
+        // Update file tree
+        if (data.tree) {
+          window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: data.tree }));
+        }
+        
+        // Trigger incremental re-indexing (will be implemented in FileWatcher)
+        if (workspacePath && indexer.enabled) {
+          console.log('[App] Triggering incremental re-index');
+          window.dispatchEvent(new CustomEvent('kaizer:file-system-changed', { detail: data }));
+        }
+      });
+    }
+
+    // Method 4: listen for SSH modal trigger from welcome screen
+    const handleOpenSSHModal = () => {
+      console.log('[App] Opening SSH modal from welcome screen');
+      setShowSSHModal(true);
+    };
+
+    if (window.electron?.ipcRenderer) {
+      window.electron.ipcRenderer.on('open-ssh-modal', handleOpenSSHModal);
+      sshModalCleanup = () => {
+        window.electron.ipcRenderer.removeListener('open-ssh-modal', handleOpenSSHModal);
+      };
+    }
+
+    // Method 5: listen for remote workspace open from SSH modal
+    const handleOpenRemoteWorkspace = (event) => {
+      const { path, connection } = event.detail;
+      console.log('[App] Opening remote workspace:', path, connection);
+      
+      // Set the workspace path to the remote path
+      setWorkspacePath(path);
+      setSSHConnection(connection);
+      
+      // Trigger tree refresh with remote path
+      window.dispatchEvent(new CustomEvent('kaizer:tree-refresh-remote', { 
+        detail: { path, remoteMode: true } 
+      }));
+    };
+
+    window.addEventListener('kaizer:open-remote-workspace', handleOpenRemoteWorkspace);
+
     return () => {
       if (cleanupCallback) {
         cleanupCallback();
       }
+      if (fileSystemCleanup) {
+        fileSystemCleanup();
+      }
+      if (sshModalCleanup) {
+        sshModalCleanup();
+      }
+      window.removeEventListener('kaizer:open-remote-workspace', handleOpenRemoteWorkspace);
     };
-  }, []);
+  }, [workspacePath]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -380,6 +445,10 @@ function App() {
       }
     };
 
+    const handleOpenSSHModal = () => {
+      setShowSSHModal(true);
+    };
+
     const handleOpenFile = async (e) => {
       const { path, showPreview } = e.detail;
       
@@ -440,6 +509,7 @@ function App() {
     window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
     window.addEventListener('kaizer:new-terminal', handleNewTerminal);
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
+    window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
@@ -450,6 +520,7 @@ function App() {
       window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
       window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
       window.removeEventListener('kaizer:open-settings', handleOpenSettings);
+      window.removeEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     };
   }, [activeTabPath, tabs, workspacePath]);
 
@@ -692,6 +763,15 @@ function App() {
       )}
       {showHelpModal && (
         <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+      {showSSHModal && (
+        <RemoteConnectionModal
+          onClose={() => setShowSSHModal(false)}
+          onConnect={(connection) => {
+            setSSHConnection(connection);
+            console.log('[App] SSH connected:', connection);
+          }}
+        />
       )}
     </div>
   );

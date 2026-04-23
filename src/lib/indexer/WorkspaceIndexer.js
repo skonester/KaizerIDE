@@ -8,6 +8,7 @@ import { SummaryGenerator } from './context/SummaryGenerator';
 import { ContextBuilder } from './context/ContextBuilder';
 import { LocalStorageAdapter } from './persistence/LocalStorageAdapter';
 import { IndexerEvents } from './observers/IndexerEvents';
+import { FileWatcher } from './observers/FileWatcher';
 
 /**
  * WorkspaceIndexer - Main orchestrator class
@@ -44,6 +45,10 @@ export class WorkspaceIndexer {
     
     // Persistence subsystem
     this.storage = new LocalStorageAdapter();
+    
+    // File watcher for real-time updates
+    this.fileWatcher = new FileWatcher(this);
+    this.fileWatcher.start();
   }
 
   // Getters for backward compatibility
@@ -105,6 +110,39 @@ export class WorkspaceIndexer {
   async reindex(workspacePath) {
     this.indexStore.clear();
     await this.startIndexing(workspacePath);
+  }
+
+  /**
+   * Re-index a single file (incremental update)
+   * @param {string} filePath - Absolute path to the file
+   */
+  async reindexFile(filePath) {
+    if (!this.stateManager.enabled) {
+      console.log('[WorkspaceIndexer] Indexing disabled, skipping file re-index');
+      return;
+    }
+
+    if (!this.stateManager.workspacePath) {
+      console.log('[WorkspaceIndexer] No workspace path set');
+      return;
+    }
+
+    console.log('[WorkspaceIndexer] Re-indexing single file:', filePath);
+
+    try {
+      // Index the single file
+      await this.indexingEngine.indexSingleFile(filePath, this.stateManager.workspacePath);
+      
+      // Save updated index to storage
+      await this.storage.save(this.stateManager.workspacePath, this.indexStore.getAll());
+      
+      // Notify subscribers
+      this.notify();
+      
+      console.log('[WorkspaceIndexer] File re-indexed successfully');
+    } catch (error) {
+      console.error('[WorkspaceIndexer] Error re-indexing file:', error);
+    }
   }
 
   // Search methods

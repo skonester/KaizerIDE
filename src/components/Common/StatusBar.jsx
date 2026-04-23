@@ -9,9 +9,25 @@ function StatusBar({ activeFile, modelName, endpoint }) {
     fileCount: indexer.index.length,
     enabled: indexer.enabled
   }));
+  const [sshStatus, setSSHStatus] = useState({ connected: false, isRemote: false });
 
   useEffect(() => {
     return indexer.subscribe(setIndexStatus);
+  }, []);
+
+  useEffect(() => {
+    // Check SSH status on mount and periodically
+    const checkSSHStatus = async () => {
+      if (window.electron?.getSSHStatus) {
+        const status = await window.electron.getSSHStatus();
+        setSSHStatus(status);
+      }
+    };
+
+    checkSSHStatus();
+    const interval = setInterval(checkSSHStatus, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const getEndpointHost = (url) => {
@@ -76,6 +92,12 @@ function StatusBar({ activeFile, modelName, endpoint }) {
         )}
       </div>
       <div className="status-right">
+        {sshStatus.connected && (
+          <div className="status-ssh connected" title="SSH Connected">
+            <span className="ssh-dot"></span>
+            <span className="ssh-text">SSH</span>
+          </div>
+        )}
         {getIndexerIndicator()}
       </div>
     </div>

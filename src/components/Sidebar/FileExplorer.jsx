@@ -71,7 +71,7 @@ function isWindows() {
   return window.navigator.userAgent.includes('Windows');
 }
 
-function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePicker, contextMenu, setContextMenu }) {
+function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePicker, contextMenu, setContextMenu, remoteMode, onFolderNavigate, onOpenFolder }) {
   const [expanded, setExpanded] = useState(depth === 0);
   const [inlineMode, setInlineMode] = useState(null);
   const [inputValue, setInputValue] = useState('');
@@ -104,10 +104,10 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
       y = window.innerHeight - menuHeight - 4;
     }
     
-    setContextMenu({ x, y, node });
+    setContextMenu({ x, y, node, remoteMode });
   };
 
-  const handleFileClick = () => {
+  const handleFileClick = async () => {
     if (node.type === 'file') {
       onFileOpen(node.path);
       const row = document.querySelector(`[data-path="${node.path}"]`);
@@ -118,6 +118,16 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
         }, 10);
       }
     } else {
+      // For folders, just expand/collapse
+      // If folder has no children loaded yet and we're in remote mode, load them
+      if (remoteMode && (!node.children || node.children.length === 0) && !expanded) {
+        // Load children for this folder
+        const result = await window.electron.getRemoteFileTree(node.path);
+        if (result.success && result.tree && result.tree.children) {
+          // Update the node's children
+          node.children = result.tree.children;
+        }
+      }
       setExpanded(!expanded);
     }
   };
@@ -257,8 +267,13 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
   const executeNewFile = async () => {
     if (!inputValue.trim()) return;
     const targetDir = node.type === 'dir' ? node.path : parentPath;
-    const newPath = `${targetDir}\\${inputValue}`;
-    const result = await window.electron.writeFile(newPath, '');
+    const separator = remoteMode ? '/' : '\\';
+    const newPath = `${targetDir}${separator}${inputValue}`;
+    
+    const result = remoteMode
+      ? await window.electron.writeRemoteFile(newPath, '')
+      : await window.electron.writeFile(newPath, '');
+      
     if (result.success) {
       setInlineMode(null);
       setInputValue('');
@@ -269,8 +284,13 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
   const executeNewFolder = async () => {
     if (!inputValue.trim()) return;
     const targetDir = node.type === 'dir' ? node.path : parentPath;
-    const newPath = `${targetDir}\\${inputValue}\\.gitkeep`;
-    const result = await window.electron.writeFile(newPath, '');
+    const separator = remoteMode ? '/' : '\\';
+    const newPath = `${targetDir}${separator}${inputValue}${separator}.gitkeep`;
+    
+    const result = remoteMode
+      ? await window.electron.writeRemoteFile(newPath, '')
+      : await window.electron.writeFile(newPath, '');
+      
     if (result.success) {
       setInlineMode(null);
       setInputValue('');
@@ -284,6 +304,14 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
       setInlineMode(null);
       return;
     }
+    
+    // Remote rename not supported yet
+    if (remoteMode) {
+      showToast('Rename not supported for remote files yet');
+      setInlineMode(null);
+      return;
+    }
+    
     const dir = node.path.substring(0, node.path.lastIndexOf('\\'));
     const newPath = `${dir}\\${inputValue}`;
     
@@ -308,6 +336,13 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
   };
 
   const executeDelete = async () => {
+    // Remote delete not supported yet
+    if (remoteMode) {
+      showToast('Delete not supported for remote files yet');
+      setDeleteConfirm(false);
+      return;
+    }
+    
     const dir = node.path.substring(0, node.path.lastIndexOf('\\'));
     
     let cmd;
@@ -499,20 +534,38 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
             </>
           ) : (
             <>
-              <div className="context-item" onClick={handleNewFile}>New File</div>
-              <div className="context-item" onClick={handleNewFolder}>New Folder</div>
-              <div className="context-separator" />
-              <div className="context-item" onClick={() => { 
-                setContextMenu(null); 
-                if (onOpenFilePicker) onOpenFilePicker(node.path); 
-              }}>
-                Open in File Picker
-              </div>
-              <div className="context-separator" />
-              <div className="context-item" onClick={handleRename}>Rename</div>
-              <div className="context-item" onClick={handleCopyPath}>Copy Path</div>
-              <div className="context-separator" />
-              <div className="context-item danger" onClick={handleDelete}>Delete</div>
+              {contextMenu.remoteMode ? (
+                <>
+                  <div className="context-item" onClick={() => { 
+                    setContextMenu(null);
+                    // Call onOpenFolder to open as workspace in main explorer
+                    if (onOpenFolder) {
+                      onOpenFolder(node.path);
+                    }
+                  }}>
+                    Open as Workspace
+                  </div>
+                  <div className="context-separator" />
+                  <div className="context-item" onClick={handleCopyPath}>Copy Path</div>
+                </>
+              ) : (
+                <>
+                  <div className="context-item" onClick={handleNewFile}>New File</div>
+                  <div className="context-item" onClick={handleNewFolder}>New Folder</div>
+                  <div className="context-separator" />
+                  <div className="context-item" onClick={() => { 
+                    setContextMenu(null); 
+                    if (onOpenFilePicker) onOpenFilePicker(node.path); 
+                  }}>
+                    Open in File Picker
+                  </div>
+                  <div className="context-separator" />
+                  <div className="context-item" onClick={handleRename}>Rename</div>
+                  <div className="context-item" onClick={handleCopyPath}>Copy Path</div>
+                  <div className="context-separator" />
+                  <div className="context-item danger" onClick={handleDelete}>Delete</div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -531,6 +584,9 @@ function TreeNode({ node, depth, onFileOpen, onRefresh, parentPath, onOpenFilePi
               parentPath={node.path}
               contextMenu={contextMenu}
               setContextMenu={setContextMenu}
+              remoteMode={remoteMode}
+              onFolderNavigate={onFolderNavigate}
+              onOpenFolder={onOpenFolder}
             />
           ))}
         </div>
@@ -552,13 +608,14 @@ function showToast(message) {
   }, 2000);
 }
 
-export default function FileExplorer({ workspacePath: workspacePathProp, onFileOpen, onOpenFolder, onOpenFilePicker, visible = true }) {
+export default function FileExplorer({ workspacePath: workspacePathProp, onFileOpen, onOpenFolder, onOpenFilePicker, visible = true, remoteMode: remoteModeProp = false }) {
   const [workspacePath, setWorkspacePath] = useState(workspacePathProp);
   const [tree, setTree] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inlineInput, setInlineInput] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
+  const [remoteMode, setRemoteMode] = useState(remoteModeProp);
   const inputRef = useRef(null);
   
   if (!visible) return null;
@@ -575,9 +632,20 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
       }
     };
 
+    const handleRemoteTreeRefresh = (event) => {
+      const { path, remoteMode } = event.detail;
+      console.log('[FileExplorer] Received remote tree-refresh event:', path, remoteMode);
+      if (remoteMode) {
+        setRemoteMode(true);
+        loadTree(path);
+      }
+    };
+
     window.addEventListener('kaizer:tree-refresh', handleTreeRefresh);
+    window.addEventListener('kaizer:tree-refresh-remote', handleRemoteTreeRefresh);
     return () => {
       window.removeEventListener('kaizer:tree-refresh', handleTreeRefresh);
+      window.removeEventListener('kaizer:tree-refresh-remote', handleRemoteTreeRefresh);
     };
   }, [workspacePath]);
 
@@ -605,6 +673,21 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
       loadTree(workspacePathProp);
     }
   }, [workspacePathProp]);
+
+  // Sync remoteMode with prop
+  useEffect(() => {
+    if (remoteModeProp !== remoteMode) {
+      setRemoteMode(remoteModeProp);
+    }
+  }, [remoteModeProp]);
+
+  // Load tree when remoteMode changes
+  useEffect(() => {
+    if (remoteMode && workspacePath) {
+      console.log('[FileExplorer] Remote mode activated, loading tree for:', workspacePath);
+      loadTree(workspacePath);
+    }
+  }, [remoteMode]);
 
   useEffect(() => {
     if (inlineInput && inputRef.current) {
@@ -637,14 +720,38 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
 
   const loadTree = async (path) => {
     setLoading(true);
-    const result = await window.electron.getFileTree(path);
-    if (result.success && result.tree) {
-      setTree(result.tree);
+    
+    try {
+      console.log('[FileExplorer] Loading tree for path:', path, 'remoteMode:', remoteMode);
+      
+      // Use remote or local API based on mode
+      const result = remoteMode 
+        ? await window.electron.getRemoteFileTree(path)
+        : await window.electron.getFileTree(path);
+      
+      console.log('[FileExplorer] Tree result:', result);
+        
+      if (result.success && result.tree) {
+        setTree(result.tree);
+        console.log('[FileExplorer] Tree loaded successfully');
+      } else {
+        console.error('[FileExplorer] Failed to load tree:', result.error);
+        alert(`Failed to load directory: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[FileExplorer] Error loading tree:', error);
+      alert(`Error loading directory: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleOpenFolder = async () => {
+    // In remote mode, don't show local folder picker
+    if (remoteMode) {
+      return;
+    }
+    
     const result = await window.electron.openFolder();
     if (!result.canceled && result.path) {
       setWorkspacePath(result.path);
@@ -675,11 +782,13 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
   const executeInlineInput = async () => {
     if (!inputValue.trim() || !inlineInput) return;
     
-    const separator = isWindows() ? '\\' : '/';
+    const separator = remoteMode ? '/' : (isWindows() ? '\\' : '/');
     
     if (inlineInput.type === 'file') {
       const newPath = `${inlineInput.parentPath}${separator}${inputValue}`;
-      const result = await window.electron.writeFile(newPath, '');
+      const result = remoteMode
+        ? await window.electron.writeRemoteFile(newPath, '')
+        : await window.electron.writeFile(newPath, '');
       if (result.success) {
         setInlineInput(null);
         setInputValue('');
@@ -687,7 +796,9 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
       }
     } else if (inlineInput.type === 'folder') {
       const newPath = `${inlineInput.parentPath}${separator}${inputValue}${separator}.gitkeep`;
-      const result = await window.electron.writeFile(newPath, '');
+      const result = remoteMode
+        ? await window.electron.writeRemoteFile(newPath, '')
+        : await window.electron.writeFile(newPath, '');
       if (result.success) {
         setInlineInput(null);
         setInputValue('');
@@ -705,7 +816,50 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
     }
   };
 
-  const workspaceName = workspacePath ? workspacePath.split('\\').pop().toUpperCase() : '';
+  const workspaceName = workspacePath 
+    ? (remoteMode 
+        ? workspacePath.split('/').filter(p => p).pop()?.toUpperCase() || 'ROOT'
+        : workspacePath.split('\\').pop().toUpperCase())
+    : '';
+
+  const handleGoBack = async () => {
+    if (!workspacePath) return;
+    
+    // Get parent directory
+    const separator = remoteMode ? '/' : (isWindows() ? '\\' : '/');
+    const parts = workspacePath.split(separator).filter(p => p);
+    
+    // If we're at root, can't go back
+    if (parts.length <= 1 && !remoteMode) return;
+    
+    // For remote, allow going back to root
+    if (remoteMode && parts.length === 0) return;
+    
+    // Remove last part to get parent
+    parts.pop();
+    const parentPath = remoteMode 
+      ? (parts.length === 0 ? '/' : '/' + parts.join('/'))
+      : (parts.length === 0 ? '' : parts.join(separator));
+    
+    if (parentPath) {
+      setWorkspacePath(parentPath);
+      await loadTree(parentPath);
+    }
+  };
+
+  const canGoBack = () => {
+    if (!workspacePath) return false;
+    const separator = remoteMode ? '/' : (isWindows() ? '\\' : '/');
+    const parts = workspacePath.split(separator).filter(p => p);
+    
+    // For remote mode, can go back unless at root
+    if (remoteMode) {
+      return workspacePath !== '/';
+    }
+    
+    // For local mode, can go back if not at drive root
+    return parts.length > 1;
+  };
 
   if (!workspacePath) {
     return (
@@ -714,10 +868,12 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
-          <div className="empty-text">No folder open</div>
-          <button className="open-folder-btn" onClick={handleOpenFolder}>
-            Open Folder
-          </button>
+          <div className="empty-text">{remoteMode ? 'Select a remote folder' : 'No folder open'}</div>
+          {!remoteMode && (
+            <button className="open-folder-btn" onClick={handleOpenFolder}>
+              Open Folder
+            </button>
+          )}
         </div>
       </div>
     );
@@ -726,7 +882,16 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
   return (
     <div className="file-explorer">
       <div className="explorer-header">
-        <span className="workspace-name">{workspaceName}</span>
+        <div className="header-left">
+          {canGoBack() && (
+            <button className="icon-btn back-btn" onClick={handleGoBack} title="Go Back">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M10 12L6 8l4-4" />
+              </svg>
+            </button>
+          )}
+          <span className="workspace-name">{workspaceName}</span>
+        </div>
         <div className="header-actions">
           <button className="icon-btn" onClick={handleRefresh} title="Refresh">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -793,6 +958,12 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
                 parentPath={workspacePath}
                 contextMenu={contextMenu}
                 setContextMenu={setContextMenu}
+                remoteMode={remoteMode}
+                onFolderNavigate={async (folderPath) => {
+                  setWorkspacePath(folderPath);
+                  await loadTree(folderPath);
+                }}
+                onOpenFolder={onOpenFolder}
               />
             ))}
           </>

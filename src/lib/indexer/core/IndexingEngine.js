@@ -77,4 +77,41 @@ export class IndexingEngine {
   isAborted() {
     return this.aborted;
   }
+
+  /**
+   * Index a single file (for incremental updates)
+   * @param {string} filePath - Absolute path to the file
+   * @param {string} workspacePath - Workspace root path
+   */
+  async indexSingleFile(filePath, workspacePath) {
+    console.log('[IndexingEngine] Indexing single file:', filePath);
+
+    try {
+      // Check if file exists and should be indexed
+      const fs = window.electron;
+      if (!fs) {
+        console.error('[IndexingEngine] Electron API not available');
+        return;
+      }
+
+      const fileInfo = await fs.getFileInfo(filePath);
+      
+      // If file doesn't exist or is a directory, remove it from index
+      if (!fileInfo.success || fileInfo.isDirectory) {
+        console.log('[IndexingEngine] File not found or is directory, removing from index');
+        this.indexStore.removeFile(filePath);
+        return;
+      }
+
+      // Index the file using FileReader
+      await this.fileReader.indexFile(filePath, workspacePath, this.indexStore);
+      
+      console.log('[IndexingEngine] Single file indexed successfully');
+    } catch (error) {
+      console.error('[IndexingEngine] Error indexing single file:', error);
+      
+      // If there's an error reading the file, remove it from index
+      this.indexStore.removeFile(filePath);
+    }
+  }
 }

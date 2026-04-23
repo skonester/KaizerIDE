@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './MenuBar.css';
 
-function MenuBar({ onMenuAction }) {
+function MenuBar({ onMenuAction, showOnlyHelp = false }) {
   const [activeMenu, setActiveMenu] = useState(null);
   const [isMacOS, setIsMacOS] = useState(false);
   const menuBarRef = useRef(null);
@@ -155,10 +155,15 @@ function MenuBar({ onMenuAction }) {
 
   const menuEntries = Object.entries(menus);
   const orderedMenus = isMacOS ? [...menuEntries].reverse() : menuEntries;
+  
+  // Filter to show only Help menu if showOnlyHelp is true
+  const displayMenus = showOnlyHelp 
+    ? orderedMenus.filter(([key]) => key === 'help')
+    : orderedMenus;
 
   return (
     <div className={`menu-bar ${isMacOS ? 'menu-bar-macos' : ''}`} ref={menuBarRef}>
-      {orderedMenus.map(([key, menu]) => (
+      {displayMenus.map(([key, menu]) => (
         <div key={key} className="menu-item">
           <button
             className={`menu-button ${activeMenu === key ? 'active' : ''}`}

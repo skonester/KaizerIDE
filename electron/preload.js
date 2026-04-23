@@ -37,5 +37,30 @@ contextBridge.exposeInMainWorld('electron', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('file-system-changed', listener);
     return () => ipcRenderer.removeListener('file-system-changed', listener);
+  },
+  
+  // SSH/Remote connection
+  connectSSH: (config) => ipcRenderer.invoke('connect-ssh', config),
+  disconnectSSH: () => ipcRenderer.invoke('disconnect-ssh'),
+  getSSHStatus: () => ipcRenderer.invoke('get-ssh-status'),
+  getRemoteFileTree: (dirPath) => ipcRenderer.invoke('get-remote-file-tree', dirPath),
+  readRemoteFile: (filePath) => ipcRenderer.invoke('read-remote-file', filePath),
+  writeRemoteFile: (filePath, content) => ipcRenderer.invoke('write-remote-file', filePath, content),
+  
+  // Welcome screen APIs
+  getUsername: () => ipcRenderer.invoke('get-username'),
+  getRecentWorkspaces: () => ipcRenderer.invoke('get-recent-workspaces'),
+  addRecentWorkspace: (workspacePath) => ipcRenderer.invoke('add-recent-workspace', workspacePath),
+  openWorkspaceFromWelcome: (workspacePath) => ipcRenderer.invoke('open-workspace-from-welcome', workspacePath),
+  openWorkspaceFromWelcomeWithSSH: () => ipcRenderer.invoke('open-workspace-from-welcome-with-ssh'),
+  
+  // IPC Renderer for custom events
+  ipcRenderer: {
+    on: (channel, callback) => {
+      ipcRenderer.on(channel, callback);
+    },
+    removeListener: (channel, callback) => {
+      ipcRenderer.removeListener(channel, callback);
+    }
   }
 });

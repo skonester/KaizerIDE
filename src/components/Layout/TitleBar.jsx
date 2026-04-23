@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MenuBar from './MenuBar';
 import './TitleBar.css';
 
-function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
+function TitleBar({ workspacePath, onSettingsClick, onMenuAction, hideMenu = false }) {
   const [isMacOS, setIsMacOS] = useState(false);
 
   useEffect(() => {
@@ -60,12 +60,13 @@ function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
         {!isMacOS && (
           <>
             <div className="logo">K</div>
-            <MenuBar onMenuAction={onMenuAction} />
+            {!hideMenu && <MenuBar onMenuAction={onMenuAction} showOnlyHelp={hideMenu} />}
+            {hideMenu && <MenuBar onMenuAction={onMenuAction} showOnlyHelp={true} />}
           </>
         )}
       </div>
       <div className="titlebar-center">
-        {!isMacOS && (
+        {!isMacOS && !hideMenu && (
           <button className="titlebar-icon-btn" onClick={onSettingsClick} title="Settings (Ctrl+,)">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
@@ -77,7 +78,8 @@ function TitleBar({ workspacePath, onSettingsClick, onMenuAction }) {
       <div className="titlebar-right">
         {isMacOS && (
           <>
-            <MenuBar onMenuAction={onMenuAction} />
+            {!hideMenu && <MenuBar onMenuAction={onMenuAction} />}
+            {hideMenu && <MenuBar onMenuAction={onMenuAction} showOnlyHelp={true} />}
             <div className="logo">K</div>
           </>
         )}

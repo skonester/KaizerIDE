@@ -210,6 +210,15 @@ function TerminalPanel({ workspacePath }) {
             ⬌
           </button>
           <button 
+            className="terminal-action-btn ssh-btn" 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('kaizer:open-ssh-modal'));
+            }}
+            title="Connect to SSH"
+          >
+            🔌
+          </button>
+          <button 
             className="terminal-action-btn" 
             onClick={() => activeTerminalId && clearTerminal(activeTerminalId)}
             title="Clear Terminal"

@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
+import { Client } from 'ssh2';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,10 +11,14 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
+let welcomeWindow;
 let openPath = null;
 let fileWatcher = null;
 let watchedPath = null;
 let refreshTimeout = null;
+let sshClient = null;
+let sftpClient = null;
+let isRemoteMode = false;
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
 
@@ -77,6 +83,58 @@ function buildFileTree(dirPath, depth = 0, maxDepth = 7) {
   } catch (err) {
     return null;
   }
+}
+
+function createWelcomeWindow() {
+  welcomeWindow = new BrowserWindow({
+    width: 900,
+    height: 600,
+    minWidth: 900,
+    minHeight: 600,
+    maxWidth: 900,
+    maxHeight: 600,
+    frame: false,
+    backgroundColor: '#0d0d0d',
+    center: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true
+    }
+  });
+
+  // Set Content Security Policy
+  welcomeWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdn.jsdelivr.net; " +
+          "font-src 'self' data: blob: https://cdn.jsdelivr.net; " +
+          "img-src 'self' data: blob: https:; " +
+          "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
+          "worker-src 'self' blob: data:; " +
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://*;"
+        ]
+      }
+    });
+  });
+
+  if (isDev) {
+    welcomeWindow.loadURL('http://localhost:5174#welcome');
+    welcomeWindow.webContents.openDevTools();
+  } else {
+    welcomeWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'welcome' });
+  }
+
+  welcomeWindow.on('closed', () => {
+    welcomeWindow = null;
+  });
+
+  return welcomeWindow;
 }
 
 function createWindow() {
@@ -164,15 +222,21 @@ if (!gotLock) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Get the path from command line arguments
   openPath = getOpenPath();
   
-  createWindow();
+  // If opened via context menu (right-click folder), open main window directly
+  if (openPath) {
+    createWindow();
+  } else {
+    // Always show welcome screen when launched normally (no command-line path)
+    createWelcomeWindow();
+  }
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWelcomeWindow();
     }
   });
 });
@@ -185,24 +249,27 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('window-minimize', () => {
-  if (mainWindow) {
-    mainWindow.minimize();
+  const activeWindow = mainWindow || welcomeWindow;
+  if (activeWindow) {
+    activeWindow.minimize();
   }
 });
 
 ipcMain.handle('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
+  const activeWindow = mainWindow || welcomeWindow;
+  if (activeWindow) {
+    if (activeWindow.isMaximized()) {
+      activeWindow.unmaximize();
     } else {
-      mainWindow.maximize();
+      activeWindow.maximize();
     }
   }
 });
 
 ipcMain.handle('window-close', () => {
-  if (mainWindow) {
-    mainWindow.close();
+  const activeWindow = mainWindow || welcomeWindow;
+  if (activeWindow) {
+    activeWindow.close();
   }
 });
 
@@ -211,7 +278,8 @@ ipcMain.handle('get-open-path', () => {
 });
 
 ipcMain.handle('open-folder', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const activeWindow = mainWindow || welcomeWindow;
+  const result = await dialog.showOpenDialog(activeWindow, {
     properties: ['openDirectory']
   });
   
@@ -407,6 +475,33 @@ ipcMain.handle('save-workspace-path', async (event, workspacePath) => {
     const userDataPath = app.getPath('userData');
     const configPath = path.join(userDataPath, 'workspace-config.json');
     fs.writeFileSync(configPath, JSON.stringify({ workspacePath }));
+    
+    // Also add to recent workspaces
+    const recentPath = path.join(userDataPath, 'recent-workspaces.json');
+    let recentData = { workspaces: [] };
+    
+    if (fs.existsSync(recentPath)) {
+      const data = fs.readFileSync(recentPath, 'utf8');
+      recentData = JSON.parse(data);
+    }
+    
+    // Remove if already exists
+    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
+    
+    // Add to front
+    const name = path.basename(workspacePath);
+    recentData.workspaces.unshift({
+      path: workspacePath,
+      name: name,
+      lastOpened: new Date().toISOString()
+    });
+    
+    // Keep only last 10
+    recentData.workspaces = recentData.workspaces.slice(0, 10);
+    
+    // Save
+    fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
+    
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -608,3 +703,387 @@ function stopWatching() {
     watchedPath = null;
   }
 }
+
+// SSH Connection Handler
+ipcMain.handle('connect-ssh', async (event, config) => {
+  try {
+    console.log('[SSH] Attempting to connect to:', config.host);
+    
+    // Close existing connection if any
+    if (sshClient) {
+      sshClient.end();
+      sshClient = null;
+      sftpClient = null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const client = new Client();
+      
+      client.on('ready', () => {
+        console.log('[SSH] Connection established');
+        
+        // Get SFTP session
+        client.sftp((err, sftp) => {
+          if (err) {
+            console.error('[SSH] SFTP error:', err);
+            client.end();
+            reject(new Error('Failed to establish SFTP session'));
+            return;
+          }
+          
+          console.log('[SSH] SFTP session established');
+          sshClient = client;
+          sftpClient = sftp;
+          isRemoteMode = true;
+          
+          resolve({
+            success: true,
+            connection: {
+              host: config.host,
+              port: config.port,
+              username: config.username,
+              connected: true
+            }
+          });
+        });
+      });
+      
+      client.on('error', (err) => {
+        console.error('[SSH] Connection error:', err);
+        reject(new Error(err.message || 'SSH connection failed'));
+      });
+      
+      client.on('end', () => {
+        console.log('[SSH] Connection ended');
+        sshClient = null;
+        sftpClient = null;
+        isRemoteMode = false;
+      });
+      
+      // Connect with provided credentials
+      const connectConfig = {
+        host: config.host,
+        port: config.port || 22,
+        username: config.username
+      };
+      
+      if (config.authType === 'password') {
+        connectConfig.password = config.password;
+      } else if (config.authType === 'key') {
+        connectConfig.privateKey = config.privateKey;
+      }
+      
+      client.connect(connectConfig);
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (!sshClient) {
+          client.end();
+          reject(new Error('Connection timeout'));
+        }
+      }, 30000);
+    });
+  } catch (error) {
+    console.error('[SSH] Connection failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Connection failed'
+    };
+  }
+});
+
+// Disconnect SSH
+ipcMain.handle('disconnect-ssh', async () => {
+  try {
+    if (sshClient) {
+      sshClient.end();
+      sshClient = null;
+      sftpClient = null;
+      isRemoteMode = false;
+      console.log('[SSH] Disconnected');
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get SSH connection status
+ipcMain.handle('get-ssh-status', async () => {
+  return {
+    connected: isRemoteMode && !!sshClient,
+    isRemote: isRemoteMode
+  };
+});
+
+// Get remote file tree via SFTP
+ipcMain.handle('get-remote-file-tree', async (event, dirPath) => {
+  console.log('[SFTP] get-remote-file-tree called with path:', dirPath);
+  console.log('[SFTP] isRemoteMode:', isRemoteMode);
+  console.log('[SFTP] sftpClient exists:', !!sftpClient);
+  
+  if (!sftpClient || !isRemoteMode) {
+    console.error('[SFTP] Not connected - sftpClient:', !!sftpClient, 'isRemoteMode:', isRemoteMode);
+    return { success: false, error: 'Not connected to remote server' };
+  }
+
+  try {
+    console.log('[SFTP] Building remote tree for:', dirPath);
+    const buildRemoteTree = async (remotePath, depth = 0, maxDepth = 2) => {
+      if (depth > maxDepth) {
+        console.log('[SFTP] Max depth reached at:', remotePath);
+        return null;
+      }
+
+      try {
+        console.log('[SFTP] Stating path:', remotePath, 'depth:', depth);
+        const stats = await new Promise((resolve, reject) => {
+          sftpClient.stat(remotePath, (err, stats) => {
+            if (err) {
+              console.log('[SFTP] Stat error for', remotePath, ':', err.message);
+              resolve(null);
+            } else {
+              resolve(stats);
+            }
+          });
+        });
+
+        // If stat returned null, skip this entry
+        if (!stats) {
+          console.log('[SFTP] No stats for:', remotePath);
+          return null;
+        }
+
+        const name = path.basename(remotePath);
+
+        if (stats.isDirectory()) {
+          // Skip common ignored directories and special Linux filesystems
+          const ignoredDirs = new Set([...IGNORED_DIRS, 'proc', 'sys', 'dev', 'run', 'boot', 'tmp', 'var', 'etc', 'usr', 'lib', 'lib64', 'bin', 'sbin', 'opt', 'srv', 'mnt', 'media']);
+          if (ignoredDirs.has(name)) {
+            console.log('[SFTP] Ignoring directory:', name);
+            return null;
+          }
+
+          // Only load children for depth 0 (root level)
+          let children = [];
+          if (depth === 0) {
+            console.log('[SFTP] Reading directory:', remotePath);
+            const entries = await new Promise((resolve, reject) => {
+              sftpClient.readdir(remotePath, (err, list) => {
+                if (err) {
+                  console.log('[SFTP] Readdir error for', remotePath, ':', err.message);
+                  resolve([]);
+                } else {
+                  console.log('[SFTP] Found', list.length, 'entries in', remotePath);
+                  resolve(list);
+                }
+              });
+            });
+
+            for (const entry of entries) {
+              try {
+                const childPath = path.posix.join(remotePath, entry.filename);
+                const childNode = await buildRemoteTree(childPath, depth + 1, maxDepth);
+                if (childNode) children.push(childNode);
+              } catch (err) {
+                console.log(`[SFTP] Skipping ${entry.filename}: ${err.message}`);
+              }
+            }
+
+            children.sort((a, b) => {
+              if (a.type === b.type) return a.name.localeCompare(b.name);
+              return a.type === 'dir' ? -1 : 1;
+            });
+          }
+
+          console.log('[SFTP] Built directory node for', remotePath, 'with', children.length, 'children');
+          return {
+            name,
+            path: remotePath,
+            type: 'dir',
+            children,
+            expanded: depth === 0
+          };
+        } else {
+          console.log('[SFTP] Built file node for:', remotePath);
+          return {
+            name,
+            path: remotePath,
+            type: 'file'
+          };
+        }
+      } catch (err) {
+        console.log('[SFTP] Error building node for', remotePath, ':', err.message);
+        return null;
+      }
+    };
+
+    const tree = await buildRemoteTree(dirPath);
+    console.log('[SFTP] Tree built successfully:', tree ? 'yes' : 'no');
+    if (tree) {
+      console.log('[SFTP] Tree structure:', JSON.stringify(tree, null, 2));
+    }
+    return { success: true, tree };
+  } catch (error) {
+    console.error('[SFTP] Get file tree error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Read remote file via SFTP
+ipcMain.handle('read-remote-file', async (event, filePath) => {
+  if (!sftpClient || !isRemoteMode) {
+    return { success: false, error: 'Not connected to remote server' };
+  }
+
+  try {
+    const content = await new Promise((resolve, reject) => {
+      sftpClient.readFile(filePath, 'utf8', (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+
+    return { success: true, content };
+  } catch (error) {
+    console.error('[SFTP] Read file error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Write remote file via SFTP
+ipcMain.handle('write-remote-file', async (event, filePath, content) => {
+  if (!sftpClient || !isRemoteMode) {
+    return { success: false, error: 'Not connected to remote server' };
+  }
+
+  try {
+    await new Promise((resolve, reject) => {
+      sftpClient.writeFile(filePath, content, 'utf8', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('[SFTP] Write file error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get OS username
+ipcMain.handle('get-username', async () => {
+  try {
+    const userInfo = os.userInfo();
+    return { success: true, username: userInfo.username };
+  } catch (error) {
+    return { success: false, username: 'User', error: error.message };
+  }
+});
+
+// Get recent workspaces
+ipcMain.handle('get-recent-workspaces', async () => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const recentPath = path.join(userDataPath, 'recent-workspaces.json');
+    
+    if (!fs.existsSync(recentPath)) {
+      return { success: true, workspaces: [] };
+    }
+    
+    const data = fs.readFileSync(recentPath, 'utf8');
+    const recentData = JSON.parse(data);
+    return { success: true, workspaces: recentData.workspaces || [] };
+  } catch (error) {
+    return { success: false, workspaces: [], error: error.message };
+  }
+});
+
+// Add recent workspace
+ipcMain.handle('add-recent-workspace', async (event, workspacePath) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const recentPath = path.join(userDataPath, 'recent-workspaces.json');
+    
+    let recentData = { workspaces: [] };
+    
+    // Load existing data
+    if (fs.existsSync(recentPath)) {
+      const data = fs.readFileSync(recentPath, 'utf8');
+      recentData = JSON.parse(data);
+    }
+    
+    // Remove if already exists (to update timestamp)
+    recentData.workspaces = recentData.workspaces.filter(w => w.path !== workspacePath);
+    
+    // Add to front
+    const name = path.basename(workspacePath);
+    recentData.workspaces.unshift({
+      path: workspacePath,
+      name: name,
+      lastOpened: new Date().toISOString()
+    });
+    
+    // Keep only last 10
+    recentData.workspaces = recentData.workspaces.slice(0, 10);
+    
+    // Save
+    fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Open workspace from welcome screen
+ipcMain.handle('open-workspace-from-welcome', async (event, workspacePath) => {
+  try {
+    // Save workspace path
+    const userDataPath = app.getPath('userData');
+    const configPath = path.join(userDataPath, 'workspace-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ workspacePath }));
+    
+    // Add to recent workspaces
+    await ipcMain.emit('add-recent-workspace', event, workspacePath);
+    
+    // Close welcome window
+    if (welcomeWindow && !welcomeWindow.isDestroyed()) {
+      welcomeWindow.close();
+      welcomeWindow = null;
+    }
+    
+    // Create main window
+    createWindow();
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Open workspace from welcome screen with SSH modal
+ipcMain.handle('open-workspace-from-welcome-with-ssh', async () => {
+  try {
+    // Close welcome window
+    if (welcomeWindow && !welcomeWindow.isDestroyed()) {
+      welcomeWindow.close();
+      welcomeWindow = null;
+    }
+    
+    // Create main window
+    createWindow();
+    
+    // Wait for window to load, then trigger SSH modal
+    if (mainWindow) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('open-ssh-modal');
+      });
+    }
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

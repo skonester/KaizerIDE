@@ -543,13 +543,13 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                         <div className="index-stats">
                           <span className="stat-item">{indexStatus.fileCount} files</span>
                           <span className="stat-separator">•</span>
-                          <span className="stat-item">Updated just now</span>
+                          <span className="stat-item">Auto-updating</span>
                         </div>
                         <button 
                           className="indexer-action-btn"
                           onClick={() => indexStatus.workspacePath && indexer.reindex(indexStatus.workspacePath)}
                         >
-                          Re-index
+                          Re-index Workspace
                         </button>
                       </>
                     )}

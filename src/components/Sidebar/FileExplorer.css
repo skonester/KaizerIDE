@@ -17,6 +17,16 @@
   flex-shrink: 0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-btn {
+  padding: 0 2px;
+}
+
 .workspace-name {
   font-size: 10px;
   font-weight: 700;
