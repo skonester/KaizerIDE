@@ -24,8 +24,7 @@
 
 ### 📊 Repository Stats
 
-![GitHub Clones](https://img.shields.io/badge/dynamic/json?color=success&label=Clones&query=count&url=https://api.github.com/repos/randheimer/KaizerIDE/traffic/clones&logo=github&style=flat-square)
-![GitHub Views](https://img.shields.io/badge/dynamic/json?color=blue&label=Views&query=count&url=https://api.github.com/repos/randheimer/KaizerIDE/traffic/views&logo=github&style=flat-square)
+![Traffic Stats](https://github.com/randheimer/KaizerIDE/blob/traffic-stats/traffic-stats.svg)
 
 ### 🤖 AI-Powered Coding Assistant
 - **Multi-Agent System** - 4 specialized agents (Executor, Planner, Ask, Fixer) with distinct roles
