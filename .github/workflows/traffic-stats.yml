@@ -1,15 +1,35 @@
-name: Traffic to Badge
+name: Generate Traffic Graphs
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
-  run:
+  generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Traffic to Badge
-        uses: yi-Xu-0100/traffic-to-badge@v1
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          my_token: ${{ secrets.GHTOKEN }}
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests matplotlib
+
+      - name: Fetch and generate graphs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHTOKEN }}
+        run: python .github/scripts/traffic.py
+
+      - name: Commit graphs
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add graphs/ traffic_history.json
+          git diff --staged --quiet || git commit -m "Update traffic graphs"
+          git push
