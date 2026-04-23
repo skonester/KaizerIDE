@@ -8,15 +8,17 @@ on:
 jobs:
   update-stats:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate Traffic Stats
-        uses: jgehrcke/github-repo-stats@v1.5.0
+        uses: jgehrcke/github-repo-stats@RELEASE
         with:
           repository: ${{ github.repository }}
-          ghtoken: ${{ secrets.GITHUB_TOKEN }}
+          ghtoken: ${{ secrets.GHTOKEN }}
 
       - name: Commit and push if changed
         run: |
