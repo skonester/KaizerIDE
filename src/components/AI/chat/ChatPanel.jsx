@@ -32,7 +32,13 @@ const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
     return <FileLink path={path}>{children}</FileLink>;
   }
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+    <a
+      className="assistant-link"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    >
       {children}
     </a>
   );
@@ -1176,7 +1182,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                           li: ({ children }) => <li className="assistant-li">{children}</li>,
                           blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
                           hr: () => <hr className="assistant-hr" />,
-                          a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
                           del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
                         }}
                       >
@@ -1350,7 +1355,6 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     li: ({ children }) => <li className="assistant-li">{children}</li>,
                     blockquote: ({ children }) => <blockquote className="assistant-blockquote">{children}</blockquote>,
                     hr: () => <hr className="assistant-hr" />,
-                    a: ({ href, children }) => <a className="assistant-link" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
                     del: ({ children }) => <del className="assistant-strikethrough">{children}</del>
                   }}
                 >

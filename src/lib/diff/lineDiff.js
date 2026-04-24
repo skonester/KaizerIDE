@@ -33,6 +33,87 @@ export function computeLineDiff(oldText = '', newText = '') {
 }
 
 /**
+ * Compute the diff then split it into sections of visible change hunks
+ * and collapsible "gap" sections of unchanged context. Each gap can be
+ * expanded by the UI on click. Format:
+ *
+ *   { kind: 'hunk', lines: [{kind, line, oldNum?, newNum?}, ...] }
+ *   { kind: 'gap',  lines: [...],  count }
+ *
+ * `context` is how many unchanged lines are kept adjacent to every
+ * change cluster before a gap is inserted. `minGap` is the minimum
+ * unchanged-line run that becomes a gap (shorter runs are inlined).
+ */
+export function diffSections(
+  oldText = '',
+  newText = '',
+  { context = 3, minGap = 4 } = {}
+) {
+  const hunks = computeLineDiff(oldText, newText);
+  if (hunks.length === 0) return [];
+
+  // Find runs of consecutive 'equal' lines; short runs stay inline,
+  // long ones become a gap that the caller can collapse.
+  const sections = [];
+  let buf = [];
+  let run = 0; // count of trailing equal lines in buf
+
+  const flushBufAsHunk = () => {
+    if (buf.length > 0) {
+      sections.push({ kind: 'hunk', lines: buf });
+      buf = [];
+    }
+  };
+
+  for (let i = 0; i < hunks.length; i++) {
+    const h = hunks[i];
+    if (h.kind === 'equal') {
+      run++;
+      buf.push(h);
+      continue;
+    }
+    // A change appeared. If we had a long trailing equal-run, split the
+    // previous chunk off and drop the middle of the run into a gap.
+    if (run >= context + minGap + context) {
+      // Chop the trailing `context` equals off the hunk buffer.
+      const keep = buf.slice(0, buf.length - run);
+      const head = buf.slice(buf.length - run, buf.length - run + context);
+      const mid = buf.slice(buf.length - run + context, buf.length - context);
+      const tail = buf.slice(buf.length - context);
+      if (keep.length > 0 || head.length > 0) {
+        sections.push({ kind: 'hunk', lines: [...keep, ...head] });
+      }
+      if (mid.length > 0) {
+        sections.push({ kind: 'gap', lines: mid, count: mid.length });
+      }
+      buf = [...tail];
+    }
+    run = 0;
+    buf.push(h);
+  }
+
+  // Handle trailing equal-run at end of file.
+  if (run >= context + minGap) {
+    const keep = buf.slice(0, buf.length - run);
+    const head = buf.slice(buf.length - run, buf.length - run + context);
+    const mid = buf.slice(buf.length - run + context);
+    if (keep.length > 0 || head.length > 0) {
+      sections.push({ kind: 'hunk', lines: [...keep, ...head] });
+    }
+    if (mid.length > 0) {
+      sections.push({ kind: 'gap', lines: mid, count: mid.length });
+    }
+  } else {
+    flushBufAsHunk();
+  }
+
+  // Drop leading gap if file had unchanged preamble — prefer dropping
+  // the preamble if it's large, keep a gap marker so the user can
+  // reveal it.
+  return sections;
+}
+
+/**
  * Compact the diff into only the hunks with changes, padded with up to
  * `context` equal lines on each side. Useful for the collapsed preview
  * that should show changes with a little context, not the whole file.

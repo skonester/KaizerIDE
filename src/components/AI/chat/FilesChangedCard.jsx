@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import Icon from '../../Common/Icon';
 import { toast } from '../../../lib/stores/toastStore';
-import { computeLineDiff, summarizeDiff } from '../../../lib/diff/lineDiff';
+import { diffSections } from '../../../lib/diff/lineDiff';
+import { highlightLine } from '../../../lib/diff/prismHighlight';
 
 /**
  * Map file extension to a Lucide icon name + a CSS accent color variable.
@@ -156,6 +157,7 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
                     originalContent={undoStack[file.path]}
                     newContent={file.content || ''}
                     isNewFile={isNewFile}
+                    fileName={fileName}
                   />
                 )}
               </div>
@@ -168,55 +170,124 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
 }
 
 /**
- * Inline unified-diff preview for a single file. Computed lazily via
- * useMemo on the row's open state so closed rows don't pay for the diff.
+ * Cursor-style inline diff for a single file. Computed lazily so closed
+ * rows don't pay the cost. Shares the same visual language as the write_file
+ * row diff: line-number gutter, +/- sign, Prism-highlighted content,
+ * collapsible unchanged gaps.
  */
 const InlineDiff = React.memo(function InlineDiff({
   originalContent,
   newContent,
   isNewFile,
+  fileName,
 }) {
-  const hunks = useMemo(() => {
+  const lang = useMemo(() => getLanguageForDiff(fileName), [fileName]);
+  const sections = useMemo(() => {
     if (isNewFile) {
-      // Brand new file — show it as all-added.
-      return (newContent || '').split('\n').map((line, i) => ({
+      const lines = (newContent || '').split('\n').map((line, i) => ({
         kind: 'add',
         line,
         newNum: i + 1,
       }));
+      return [{ kind: 'hunk', lines }];
     }
-    const full = computeLineDiff(originalContent || '', newContent || '');
-    return summarizeDiff(full, { context: 2, maxLines: 24 });
+    return diffSections(originalContent || '', newContent || '', {
+      context: 3,
+      minGap: 4,
+    });
   }, [originalContent, newContent, isNewFile]);
 
-  if (hunks.length === 0) {
+  const [openGaps, setOpenGaps] = useState(() => new Set());
+  const toggleGap = (idx) => {
+    setOpenGaps((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const hasChanges = sections.some((s) =>
+    s.kind === 'hunk' && s.lines.some((l) => l.kind !== 'equal')
+  );
+
+  if (!hasChanges && !isNewFile) {
     return (
-      <div className="inline-diff inline-diff-empty">
-        No textual changes
-      </div>
+      <div className="inline-diff inline-diff-empty">No textual changes</div>
     );
   }
 
   return (
-    <div className="inline-diff" role="region" aria-label="Diff preview">
-      {hunks.map((h, i) => {
-        if (h.kind === 'sep') {
-          return (
-            <div key={i} className="inline-diff-sep">
-              <span>...</span>
-            </div>
-          );
-        }
-        const sign = h.kind === 'add' ? '+' : h.kind === 'remove' ? '-' : ' ';
-        return (
-          <div key={i} className={`inline-diff-line inline-diff-${h.kind}`}>
-            <span className="inline-diff-sign">{sign}</span>
-            <span className="inline-diff-text">{h.line}</span>
-          </div>
-        );
-      })}
+    <div className="write-file-diff" role="region" aria-label="Diff preview">
+      <div className="write-file-diff-body inline-diff-prism">
+        {sections.map((section, sIdx) => {
+          if (section.kind === 'gap') {
+            const open = openGaps.has(sIdx);
+            if (!open) {
+              return (
+                <button
+                  key={`gap-${sIdx}`}
+                  className="write-file-diff-gap"
+                  onClick={() => toggleGap(sIdx)}
+                  type="button"
+                >
+                  <Icon name="ChevronDown" size={11} />
+                  <span>
+                    {section.count} unchanged line
+                    {section.count !== 1 ? 's' : ''}
+                  </span>
+                </button>
+              );
+            }
+            return (
+              <React.Fragment key={`gap-${sIdx}`}>
+                <button
+                  className="write-file-diff-gap is-open"
+                  onClick={() => toggleGap(sIdx)}
+                  type="button"
+                >
+                  <Icon name="ChevronUp" size={11} />
+                  <span>Collapse {section.count} unchanged</span>
+                </button>
+                {section.lines.map((ln, i) => (
+                  <FileDiffLine key={`g-${sIdx}-${i}`} line={ln} lang={lang} />
+                ))}
+              </React.Fragment>
+            );
+          }
+          return section.lines.map((ln, i) => (
+            <FileDiffLine key={`s-${sIdx}-${i}`} line={ln} lang={lang} />
+          ));
+        })}
+      </div>
     </div>
   );
 });
+
+const FileDiffLine = React.memo(function FileDiffLine({ line, lang }) {
+  const sign = line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' ';
+  const html = useMemo(() => highlightLine(line.line || '', lang), [line.line, lang]);
+  return (
+    <div className={`write-file-diff-row diff-row-${line.kind}`}>
+      <span className="diff-row-lineno diff-row-lineno-old">
+        {line.oldNum || ''}
+      </span>
+      <span className="diff-row-lineno diff-row-lineno-new">
+        {line.newNum || ''}
+      </span>
+      <span className="diff-row-sign">{sign}</span>
+      <span
+        className="diff-row-text"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+});
+
+function getLanguageForDiff(fileName) {
+  if (!fileName || typeof fileName !== 'string') return '';
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  return ext || '';
+}
 
 export default React.memo(FilesChangedCard);
