@@ -9,6 +9,11 @@ import Icon from '../../Common/Icon';
 import StreamingCodeBlock from './StreamingCodeBlock';
 import FilesChangedCard from './FilesChangedCard';
 import ToolGroupCard from './ToolGroupCard';
+import ChatHeader from './ChatHeader';
+import EmptyState from './EmptyState';
+import TypingIndicator from './TypingIndicator';
+import ChatHistoryModal from './modals/ChatHistoryModal';
+import AddModelModal from './modals/AddModelModal';
 import {
   useChatStore,
   POPUP_CONTEXT,
@@ -1291,45 +1296,15 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   return (
     <div className="chat-panel">
       {/* Header */}
-      <div className="chat-header-new">
-        <div className="chat-header-left">
-          <Icon name="MessageSquare" size={16} className="chat-icon" />
-          <span className="chat-title">Chat</span>
-        </div>
-        <div className="chat-header-right">
-          <button className="icon-btn" onClick={handleNewChat} title="New chat" aria-label="New chat">
-            <Icon name="Plus" size={16} />
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => setShowHistoryModal(true)}
-            title="History"
-            aria-label="Chat history"
-          >
-            <Icon name="Clock" size={16} />
-          </button>
-        </div>
-      </div>
+      <ChatHeader
+        onNewChat={handleNewChat}
+        onOpenHistory={() => setShowHistoryModal(true)}
+      />
 
       {/* Messages Area */}
       <div className="chat-messages-new" ref={messagesContainerRef} onScroll={handleScroll}>
         {messages.length === 0 ? (
-          <div className="empty-state-new">
-            <div className="empty-logo">K</div>
-            <div className="empty-title">KaizerIDE</div>
-            <div className="empty-subtitle">Ask anything about your code</div>
-            <div className="suggestion-chips">
-              <button className="suggestion-chip" onClick={() => handleSuggestionClick('Explain this codebase')}>
-                Explain this codebase
-              </button>
-              <button className="suggestion-chip" onClick={() => handleSuggestionClick('Fix bugs in open file')}>
-                Fix bugs in open file
-              </button>
-              <button className="suggestion-chip" onClick={() => handleSuggestionClick('Add a new feature')}>
-                Add a new feature
-              </button>
-            </div>
-          </div>
+          <EmptyState onSuggestionClick={handleSuggestionClick} />
         ) : (
           <>
             {messages.map((msg, idx) => {
@@ -1368,11 +1343,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           </>
         )}
         {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
-          <div className="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
+          <TypingIndicator />
         )}
         <div ref={messagesEndRef} style={{ height: 1 }} />
       </div>
@@ -1659,127 +1630,20 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="settings-modal-overlay" onClick={() => setShowSettingsModal(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h2>Add Model</h2>
-              <button
-                className="settings-close-btn"
-                onClick={() => setShowSettingsModal(false)}
-                aria-label="Close"
-              >
-                <Icon name="X" size={16} />
-              </button>
-            </div>
-            <div className="settings-modal-body">
-              <div className="settings-section">
-                <label className="settings-label">Model Name</label>
-                <input 
-                  type="text" 
-                  className="settings-input" 
-                  placeholder="e.g., GPT-4, Claude 4.5 Sonnet"
-                />
-              </div>
-              <div className="settings-section">
-                <label className="settings-label">Model ID</label>
-                <input 
-                  type="text" 
-                  className="settings-input" 
-                  placeholder="e.g., gpt-4, claude-3-5-sonnet-20241022"
-                />
-              </div>
-              <div className="settings-section">
-                <label className="settings-label">API Endpoint</label>
-                <input 
-                  type="text" 
-                  className="settings-input" 
-                  placeholder="https://api.openai.com/v1"
-                  defaultValue={settings.endpoint}
-                />
-              </div>
-              <div className="settings-section">
-                <label className="settings-label">API Key</label>
-                <input 
-                  type="password" 
-                  className="settings-input" 
-                  placeholder="sk-..."
-                />
-              </div>
-              <div className="settings-section">
-                <label className="settings-label">Max Output Tokens</label>
-                <input 
-                  type="number" 
-                  className="settings-input" 
-                  placeholder="4096"
-                  defaultValue="4096"
-                />
-              </div>
-            </div>
-            <div className="settings-modal-footer">
-              <button className="settings-btn-secondary" onClick={() => setShowSettingsModal(false)}>
-                Cancel
-              </button>
-              <button className="settings-btn-primary" onClick={() => {
-                alert('Model add functionality coming soon!');
-                setShowSettingsModal(false);
-              }}>
-                Add Model
-              </button>
-            </div>
-          </div>
-        </div>
+        <AddModelModal
+          endpoint={settings.endpoint}
+          onClose={() => setShowSettingsModal(false)}
+        />
       )}
 
       {/* Chat History Modal */}
       {showHistoryModal && (
-        <div className="settings-modal-overlay" onClick={() => setShowHistoryModal(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h2>Chat History</h2>
-              <button
-                className="settings-close-btn"
-                onClick={() => setShowHistoryModal(false)}
-                aria-label="Close"
-              >
-                <Icon name="X" size={16} />
-              </button>
-            </div>
-            <div className="settings-modal-body">
-              <div className="history-list">
-                {chatHistory.length === 0 ? (
-                  <div className="history-empty">
-                    <Icon name="MessageSquare" size={32} className="history-empty-icon" />
-                    <p>No chat history yet</p>
-                    <span className="history-empty-hint">Your conversations will appear here</span>
-                  </div>
-                ) : (
-                  chatHistory.map(chat => (
-                    <div key={chat.id} className="history-item" onClick={() => handleLoadChat(chat.id)}>
-                      <div className="history-item-content">
-                        <div className="history-item-title">{chat.title}</div>
-                        <div className="history-item-meta">
-                          <span>{new Date(chat.timestamp).toLocaleDateString()}</span>
-                          <span>•</span>
-                          <span>{chat.messages.length} messages</span>
-                        </div>
-                      </div>
-                      <div className="history-item-actions">
-                        <button
-                          className="history-action-btn delete"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.id); }}
-                          title="Delete chat"
-                          aria-label="Delete chat"
-                        >
-                          <Icon name="Trash2" size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChatHistoryModal
+          chatHistory={chatHistory}
+          onClose={() => setShowHistoryModal(false)}
+          onLoadChat={handleLoadChat}
+          onDeleteChat={handleDeleteChat}
+        />
       )}
 
       {/* File Picker Modal */}
