@@ -150,6 +150,56 @@ export class WorkspaceIndexer {
     return this.searchEngine.search(query, limit);
   }
 
+  /**
+   * Line-level grep over the cached file previews (first ~50 lines per file).
+   * Much faster than shelling out to search_files for queries the AI wants to
+   * run across the whole workspace. Only searches what's already in memory.
+   *
+   * @param {string} query - literal text to find (case-insensitive)
+   * @param {number} limit - max matches to return
+   * @returns {Array<{path:string, line:number, content:string}>}
+   */
+  grep(query, limit = 30) {
+    if (!query || typeof query !== 'string') return [];
+    const needle = query.toLowerCase();
+    const out = [];
+
+    for (const f of this.indexStore.getAll()) {
+      if (!f || !f.preview) continue;
+      const lines = f.preview.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes(needle)) {
+          out.push({
+            path: f.path,
+            line: i + 1,
+            content: lines[i].trim().slice(0, 200),
+          });
+          if (out.length >= limit) return out;
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Aggregate stats used by the summary generator and any future status UI.
+   */
+  getStats() {
+    const files = this.indexStore.getAll();
+    let totalLOC = 0;
+    const languages = {};
+    for (const f of files) {
+      totalLOC += f.lines || 0;
+      const key = (f.ext || '').replace(/^\./, '') || 'other';
+      languages[key] = (languages[key] || 0) + 1;
+    }
+    return {
+      fileCount: files.length,
+      totalLOC,
+      languages,
+    };
+  }
+
   // Context methods
   getIndexSummary() {
     return this.summaryGenerator.generate();

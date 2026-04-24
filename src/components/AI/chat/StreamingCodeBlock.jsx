@@ -1,36 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import Icon from '../../Common/Icon';
+import { toast } from '../../../lib/stores/toastStore';
 
+/**
+ * StreamingCodeBlock - syntax-highlighted code block that eases in new
+ * characters while content is still streaming. When streaming ends it
+ * snaps to the final content.
+ *
+ * The cursor is a CSS-animated element (smooth opacity fade) instead of
+ * a setInterval toggle — produces a gentler, non-jittery blink.
+ */
 function StreamingCodeBlock({ content, language, isStreaming }) {
-  const [displayedContent, setDisplayedContent] = useState('');
-  const [cursorVisible, setCursorVisible] = useState(true);
-  const contentRef = useRef('');
+  const [displayedContent, setDisplayedContent] = useState(content || '');
+  const contentRef = useRef(content || '');
   const animationFrameRef = useRef(null);
   const lastUpdateRef = useRef(Date.now());
 
   useEffect(() => {
     if (!isStreaming) {
-      // If not streaming, show full content immediately
+      // Not streaming: show full content instantly.
+      contentRef.current = content;
       setDisplayedContent(content);
-      setCursorVisible(false);
-      return;
+      return undefined;
     }
 
-    // Streaming mode - animate character by character
     const targetContent = content;
-    
+
     if (targetContent.length > contentRef.current.length) {
-      // New content added
       const charsToAdd = targetContent.length - contentRef.current.length;
-      const chunkSize = Math.max(1, Math.ceil(charsToAdd / 10)); // Add multiple chars at once for speed
-      
+      // Ease in new chars in chunks so it looks alive without strobing.
+      const chunkSize = Math.max(1, Math.ceil(charsToAdd / 10));
+
       const animate = () => {
         const now = Date.now();
-        const timeSinceLastUpdate = now - lastUpdateRef.current;
-        
-        // Update every 16ms (60fps) or slower
-        if (timeSinceLastUpdate >= 16) {
+        if (now - lastUpdateRef.current >= 16) {
           if (contentRef.current.length < targetContent.length) {
             const nextLength = Math.min(
               contentRef.current.length + chunkSize,
@@ -41,15 +46,14 @@ function StreamingCodeBlock({ content, language, isStreaming }) {
             lastUpdateRef.current = now;
           }
         }
-        
+
         if (contentRef.current.length < targetContent.length) {
           animationFrameRef.current = requestAnimationFrame(animate);
         }
       };
-      
+
       animationFrameRef.current = requestAnimationFrame(animate);
     } else {
-      // Content unchanged or reduced
       contentRef.current = targetContent;
       setDisplayedContent(targetContent);
     }
@@ -61,22 +65,13 @@ function StreamingCodeBlock({ content, language, isStreaming }) {
     };
   }, [content, isStreaming]);
 
-  // Cursor blink effect
-  useEffect(() => {
-    if (!isStreaming) {
-      setCursorVisible(false);
-      return;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
     }
-
-    const interval = setInterval(() => {
-      setCursorVisible(v => !v);
-    }, 530);
-
-    return () => clearInterval(interval);
-  }, [isStreaming]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(content);
   };
 
   return (
@@ -84,8 +79,14 @@ function StreamingCodeBlock({ content, language, isStreaming }) {
       {language && (
         <div className="code-block-header">
           <span className="code-block-lang">{language}</span>
-          <button className="code-copy-btn" onClick={handleCopy}>
-            Copy
+          <button
+            className="code-copy-btn"
+            onClick={handleCopy}
+            title="Copy"
+            aria-label="Copy code"
+            type="button"
+          >
+            <Icon name="Copy" size={12} />
           </button>
         </div>
       )}
@@ -104,29 +105,16 @@ function StreamingCodeBlock({ content, language, isStreaming }) {
           codeTagProps={{
             style: {
               fontFamily: 'var(--font-mono)',
-              lineHeight: '1.5'
-            }
+              lineHeight: '1.5',
+            },
           }}
         >
           {displayedContent || ' '}
         </SyntaxHighlighter>
-        {isStreaming && cursorVisible && (
-          <div
-            style={{
-              position: 'absolute',
-              right: '12px',
-              bottom: '12px',
-              width: '8px',
-              height: '16px',
-              background: 'var(--accent)',
-              animation: 'none',
-              borderRadius: '1px',
-            }}
-          />
-        )}
+        {isStreaming && <span className="streaming-caret" aria-hidden="true" />}
       </div>
     </div>
   );
 }
 
-export default StreamingCodeBlock;
+export default React.memo(StreamingCodeBlock);

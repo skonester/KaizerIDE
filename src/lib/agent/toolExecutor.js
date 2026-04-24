@@ -128,11 +128,60 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
       if (results.length === 0) {
         return `No files found matching "${args.query}"`;
       }
-      return results.map(f => 
-        `${f.path}\n  Type: ${f.ext} | Lines: ${f.lines} | Symbols: ${f.symbols.slice(0, 5).join(', ') || 'none'}`
-      ).join('\n\n');
+      const needle = (args.query || '').toLowerCase();
+      // Build a richer per-result block: metadata + a short code snippet
+      // so the AI sees actual code, not just "Lines: 40".
+      return results
+        .map((f) => {
+          const symbolsStr = (f.symbols || []).slice(0, 5).join(', ') || 'none';
+          const header = `${f.path}\n  Type: ${f.ext} | Lines: ${f.lines} | Symbols: ${symbolsStr}`;
+
+          if (!f.preview) return header;
+          const lines = f.preview.split('\n');
+          const matchIdx = lines.findIndex((ln) =>
+            ln.toLowerCase().includes(needle)
+          );
+          let snippetLines;
+          let startLine;
+          if (matchIdx !== -1) {
+            const from = Math.max(0, matchIdx - 2);
+            const to = Math.min(lines.length, matchIdx + 3);
+            snippetLines = lines.slice(from, to);
+            startLine = from + 1;
+          } else {
+            snippetLines = lines.slice(0, 5);
+            startLine = 1;
+          }
+          const snippet = snippetLines
+            .map((ln, i) => `  ${String(startLine + i).padStart(4, ' ')}  ${ln}`)
+            .join('\n');
+          return `${header}\n${snippet}`;
+        })
+        .join('\n\n');
     }
-    
+
+    case 'grep_index': {
+      const limit = args.limit || 30;
+      const results = indexer.grep(args.query, limit);
+      if (results.length === 0) {
+        return `No matches for "${args.query}" in indexed previews.`;
+      }
+      // Group by file for a compact, grep-like output.
+      const byFile = new Map();
+      for (const r of results) {
+        if (!byFile.has(r.path)) byFile.set(r.path, []);
+        byFile.get(r.path).push(r);
+      }
+      return Array.from(byFile.entries())
+        .map(([path, matches]) => {
+          const lines = matches
+            .map((m) => `  ${String(m.line).padStart(4, ' ')}: ${m.content}`)
+            .join('\n');
+          return `${path}\n${lines}`;
+        })
+        .join('\n\n');
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }

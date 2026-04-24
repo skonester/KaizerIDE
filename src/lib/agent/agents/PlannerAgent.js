@@ -27,7 +27,8 @@ export class PlannerAgent extends AgentBase {
         'read_file',
         'list_directory',
         'search_files',
-        'search_index'
+        'search_index',
+        'grep_index'
       ]
     };
   }

@@ -920,6 +920,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       // so rapid token updates don't restart it on every render.
       <div className="message-row assistant-row is-streaming" key="streaming">
         <div className="message-assistant">
+          <div className="assistant-avatar" aria-hidden="true">K</div>
           {/* Interleave content segments and thinking blocks */}
           {msg.contentSegments && msg.contentSegments.map((segment, idx) => (
             <React.Fragment key={`segment-${idx}`}>
@@ -972,19 +973,22 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     {msg.thinkingBlocks[idx].isThinking ? (
                       <span className="thinking-spinner"></span>
                     ) : (
-                      <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                      <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
                     )}
                     <span className="thinking-label">
                       {msg.thinkingBlocks[idx].isThinking
                         ? 'Thinking...'
-                        : `Thought for ${((msg.thinkingBlocks[idx].duration || 0) / 1000).toFixed(1)}s`}
+                        : `Thought for ${((msg.thinkingBlocks[idx].duration || 0) / 1000).toFixed(1)}s${
+                            (msg.thinkingBlocks[idx].content || '').length > 0
+                              ? ` • ${(msg.thinkingBlocks[idx].content || '').length} chars`
+                              : ''
+                          }`}
                     </span>
-                    <span 
+                    <Icon
+                      name={msg.thinkingBlocks[idx].expanded ? 'ChevronDown' : 'ChevronRight'}
+                      size={12}
                       className="thinking-chevron"
-                      style={{transform: msg.thinkingBlocks[idx].expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-                    >
-                      ▸
-                    </span>
+                    />
                   </div>
                   {msg.thinkingBlocks[idx].expanded && (
                     <div className="thinking-body">
@@ -1037,6 +1041,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       return (
         <div key={idx} className="message-row assistant-row">
           <div className="message-assistant">
+            <div className="assistant-avatar" aria-hidden="true">K</div>
             {/* Interleave content segments and thinking blocks */}
             {msg.contentSegments && msg.contentSegments.length > 0 ? (
               // New format with segments
@@ -1061,10 +1066,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                                   {language && (
                                     <div className="code-block-header">
                                       <span className="code-block-lang">{language}</span>
-                                      <button className="code-copy-btn" onClick={() => {
-                                        navigator.clipboard.writeText(codeContent);
-                                      }}>
-                                        Copy
+                                      <button
+                                        className="code-copy-btn"
+                                        onClick={async () => {
+                                          try {
+                                            await navigator.clipboard.writeText(codeContent);
+                                            toast.success('Copied');
+                                          } catch {
+                                            toast.error('Copy failed');
+                                          }
+                                        }}
+                                        title="Copy"
+                                        aria-label="Copy code"
+                                        type="button"
+                                      >
+                                        <Icon name="Copy" size={12} />
                                       </button>
                                     </div>
                                   )}
@@ -1137,18 +1153,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                           }));
                         }}
                       >
-                        <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                        <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
                         <span className="thinking-label">
-                          {msg.thinkingBlocks[segIdx].duration 
-                            ? `Thought for ${(msg.thinkingBlocks[segIdx].duration / 1000).toFixed(1)}s`
+                          {msg.thinkingBlocks[segIdx].duration
+                            ? `Thought for ${(msg.thinkingBlocks[segIdx].duration / 1000).toFixed(1)}s${
+                                (msg.thinkingBlocks[segIdx].content || '').length > 0
+                                  ? ` • ${(msg.thinkingBlocks[segIdx].content || '').length} chars`
+                                  : ''
+                              }`
                             : 'Thinking'}
                         </span>
-                        <span 
+                        <Icon
+                          name={msg.thinkingBlocks[segIdx].expanded ? 'ChevronDown' : 'ChevronRight'}
+                          size={12}
                           className="thinking-chevron"
-                          style={{transform: msg.thinkingBlocks[segIdx].expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-                        >
-                          ▸
-                        </span>
+                        />
                       </div>
                       {msg.thinkingBlocks[segIdx].expanded && (
                         <div className="thinking-body">
@@ -1178,18 +1197,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     }));
                   }}
                 >
-                  <span style={{color:'#22c55e',fontSize:'11px',fontWeight:'700'}}>✓</span>
+                  <Icon name="CheckCircle2" size={12} style={{ color: '#22c55e' }} />
                   <span className="thinking-label">
-                    {block.duration 
-                      ? `Thought for ${(block.duration / 1000).toFixed(1)}s`
+                    {block.duration
+                      ? `Thought for ${(block.duration / 1000).toFixed(1)}s${
+                          (block.content || '').length > 0
+                            ? ` • ${(block.content || '').length} chars`
+                            : ''
+                        }`
                       : 'Thinking'}
                   </span>
-                  <span 
+                  <Icon
+                    name={block.expanded ? 'ChevronDown' : 'ChevronRight'}
+                    size={12}
                     className="thinking-chevron"
-                    style={{transform: block.expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}
-                  >
-                    ▸
-                  </span>
+                  />
                 </div>
                 {block.expanded && (
                   <div className="thinking-body">
@@ -1217,10 +1239,21 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                             {language && (
                               <div className="code-block-header">
                                 <span className="code-block-lang">{language}</span>
-                                <button className="code-copy-btn" onClick={() => {
-                                  navigator.clipboard.writeText(codeContent);
-                                }}>
-                                  Copy
+                                <button
+                                  className="code-copy-btn"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(codeContent);
+                                      toast.success('Copied');
+                                    } catch {
+                                      toast.error('Copy failed');
+                                    }
+                                  }}
+                                  title="Copy"
+                                  aria-label="Copy code"
+                                  type="button"
+                                >
+                                  <Icon name="Copy" size={12} />
                                 </button>
                               </div>
                             )}

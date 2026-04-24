@@ -92,9 +92,10 @@ AVAILABLE TOOLS:
 • read_file(path) — Read any file in the workspace
 • write_file(path, content) — Create or overwrite files
 • list_directory(path) — Explore project structure (use sparingly, prefer search_index)
-• search_index(query, limit?) — Search indexed files by name, path, symbols, or content (FAST - use this first!)
-• get_index_summary() — Get complete workspace overview with file types and structure (use this to understand the project)
-• search_files(query, dir?) — Full-text search across codebase
+• search_index(query, limit?) — Search indexed files by name/path/symbols/content. Returns file metadata AND a 5-line code snippet around each hit — often enough to answer without read_file.
+• grep_index(query, limit?) — Case-insensitive line-level search across indexed previews. Returns path + line number + matching line, grouped by file. Great for finding usages/definitions fast.
+• get_index_summary() — Complete workspace overview (LOC total, structure, file types, top symbols, largest files).
+• search_files(query, dir?) — Full-text search across the live filesystem (slower; use grep_index first).
 • run_command(command, cwd?) — Execute shell commands (requires user permission)
 
 IMPORTANT: Before using run_command, you MUST ask the user for permission. The user will be prompted to:
