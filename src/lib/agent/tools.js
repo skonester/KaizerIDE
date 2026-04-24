@@ -6,13 +6,21 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'read_file',
-      description: 'Read the contents of a file',
+      description: 'Read the contents of a file. If fromLine/toLine are provided, only that 1-indexed inclusive range is returned, prefixed with line numbers. Use a range when you already know where to look (e.g., from search_index symbol line numbers) so you don\'t pull entire large files.',
       parameters: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
             description: 'Path to the file to read (relative to workspace root)'
+          },
+          fromLine: {
+            type: 'number',
+            description: 'Optional 1-indexed start line (inclusive). If omitted, reads from line 1.'
+          },
+          toLine: {
+            type: 'number',
+            description: 'Optional 1-indexed end line (inclusive). If omitted, reads to end of file.'
           }
         },
         required: ['path']

@@ -185,13 +185,26 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
   const fileName = basename(filePath) || filePath;
   const absolutePath = parsedArgs.path || parsedArgs.filePath || '';
 
+  const isWriteTool = tool.name === 'write_file' || tool.name === 'write-file';
   const resultIsString = typeof tool.result === 'string';
-  const resultLanguage = resultIsString ? getLanguageFromFilename(fileName) : 'json';
-  const fullResult = resultIsString
-    ? tool.result
-    : tool.result != null
-      ? JSON.stringify(tool.result, null, 2)
-      : '';
+  // For write_file, the tool result is just a success string; show the
+  // NEW file content instead so the user can inspect what was written.
+  // For other tools, stringify the result.
+  const fullResult = isWriteTool && typeof parsedArgs.content === 'string'
+    ? parsedArgs.content
+    : resultIsString
+      ? tool.result
+      : tool.result != null
+        ? JSON.stringify(tool.result, null, 2)
+        : '';
+  const previewLabel = isWriteTool && typeof parsedArgs.content === 'string'
+    ? 'new content'
+    : null;
+  const resultLanguage = isWriteTool
+    ? getLanguageFromFilename(fileName)
+    : resultIsString
+      ? getLanguageFromFilename(fileName)
+      : 'json';
   const resultLines = fullResult ? fullResult.split('\n') : [];
   const truncated = !showAllLines && resultLines.length > RESULT_PREVIEW_LINES;
   const displayedResult = truncated
@@ -280,6 +293,7 @@ const ToolRow = React.memo(function ToolRow({ tool, index, onToggleExpanded }) {
         <div className="tool-row-result">
           <div className="tool-row-result-header">
             <span className="tool-row-result-meta">
+              {previewLabel ? `${previewLabel} \u00b7 ` : ''}
               {resultLines.length} line{resultLines.length !== 1 ? 's' : ''}
             </span>
             <div className="tool-row-result-actions">

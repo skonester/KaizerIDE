@@ -22,19 +22,38 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
   const executeWithRetry = async (attemptNumber) => {
     switch (toolName) {
       case 'read_file': {
-        const fullPath = workspacePath 
+        const fullPath = workspacePath
           ? joinPath(workspacePath, args.path)
           : args.path;
-        console.log('[Agent] read_file called for:', fullPath);
+        console.log('[Agent] read_file called for:', fullPath, {
+          fromLine: args.fromLine,
+          toLine: args.toLine,
+        });
         const result = await window.electron.readFile(fullPath);
-        console.log('[Agent] read_file result:', { success: result?.success, hasContent: result?.content !== null && result?.content !== undefined, error: result?.error });
-        if (result.success && result.content !== null && result.content !== undefined) {
-          return result.content;
-        } else {
+        if (!(result.success && result.content !== null && result.content !== undefined)) {
           const errorMsg = `Error reading file: ${result.error || 'File content is empty or null'}`;
           console.error('[Agent]', errorMsg, 'Path:', fullPath);
           throw new Error(errorMsg);
         }
+
+        // Optional line-range slicing. 1-indexed, inclusive. Prevents the
+        // agent from pulling whole huge files when it knows the region.
+        const from = Number.isFinite(args.fromLine) ? Math.max(1, Math.floor(args.fromLine)) : null;
+        const to = Number.isFinite(args.toLine) ? Math.max(from || 1, Math.floor(args.toLine)) : null;
+        if (from === null && to === null) {
+          return result.content;
+        }
+
+        const allLines = result.content.split('\n');
+        const startIdx = (from ?? 1) - 1;
+        const endIdx = Math.min(allLines.length, to ?? allLines.length);
+        const sliced = allLines.slice(startIdx, endIdx);
+        // Prefix each line with its absolute line number so the model can
+        // reference positions confidently.
+        const width = String(endIdx).length;
+        return sliced
+          .map((ln, i) => `${String(startIdx + 1 + i).padStart(width, ' ')}  ${ln}`)
+          .join('\n');
       }
     
     case 'write_file': {
@@ -133,7 +152,16 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
       // so the AI sees actual code, not just "Lines: 40".
       return results
         .map((f) => {
-          const symbolsStr = (f.symbols || []).slice(0, 5).join(', ') || 'none';
+          const symbolsStr =
+            (Array.isArray(f.symbols) ? f.symbols : [])
+              .slice(0, 5)
+              .map((s) => {
+                if (!s) return null;
+                if (typeof s === 'string') return s;
+                return s.line ? `${s.name}:${s.line}` : s.name;
+              })
+              .filter(Boolean)
+              .join(', ') || 'none';
           const header = `${f.path}\n  Type: ${f.ext} | Lines: ${f.lines} | Symbols: ${symbolsStr}`;
 
           if (!f.preview) return header;

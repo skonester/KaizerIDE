@@ -756,6 +756,23 @@
   max-height: 280px;
   overflow-y: auto;
   overflow-x: hidden;
+  /* Timeline layout: a vertical connector rail sits to the left and every
+     row becomes a step with a dot marker. */
+  position: relative;
+  padding-left: 18px;
+}
+
+/* The connector rail itself. Stops 6px short of top and bottom so the
+   first and last dots aren't capped by a visible line. */
+.tool-group-rows::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border-2, var(--border));
+  pointer-events: none;
 }
 
 .tool-group-rows::-webkit-scrollbar {
@@ -777,6 +794,53 @@
 
 .tool-group-row {
   border-top: 1px solid var(--border-2, var(--border));
+  position: relative;
+}
+
+/* Timeline dot aligned with the rail above. Color varies by state via
+   descendant selectors below. */
+.tool-group-row::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1.5px solid var(--border-2, var(--border));
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+/* Running row dot: accent colored + pulsing. */
+.tool-group-row:has(.tool-row-icon.spinning)::before {
+  background: var(--accent, #a855f7);
+  border-color: var(--accent, #a855f7);
+  animation: timelineDotPulse 1.4s ease-in-out infinite;
+}
+
+/* Done row dot: green. We can't use :has() for icon name, so key off the
+   absence of .spinning — any non-running row with an icon we treat as done. */
+.tool-group-row:has(.tool-row-icon:not(.spinning))::before {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+@keyframes timelineDotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.45); }
+  50%      { box-shadow: 0 0 0 5px rgba(168, 85, 247, 0); }
+}
+
+/* Dim completed tool groups so the current/active one reads first. The
+   dim lifts on hover so you can still scan old turns. */
+.tool-group-card.done:not(:hover):not(:focus-within) {
+  opacity: 0.72;
+  transition: opacity var(--dur-fast, 120ms) ease;
+}
+.tool-group-card.done:hover,
+.tool-group-card.done:focus-within {
+  opacity: 1;
 }
 
 .tool-row-main {
@@ -1533,6 +1597,120 @@
 
 .files-changed-row-right .stat-remove {
   color: #ef4444;
+}
+
+/* Wraps a row + its collapsible diff so both share the same bottom border. */
+.files-changed-row-wrap {
+  border-top: 1px solid var(--border-2, var(--border));
+}
+.files-changed-row-wrap:first-child {
+  border-top: none;
+}
+.files-changed-row-wrap .files-changed-row {
+  border-top: none;
+}
+
+/* Row chevron shows the open/closed state of the inline diff. */
+.files-changed-row-chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.files-changed-row.is-open {
+  background: var(--bg-3);
+}
+
+/* Small button to open the file in the editor without triggering the
+   row's expand toggle. */
+.files-changed-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--text-3);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast, 120ms) ease,
+    color var(--dur-fast, 120ms) ease,
+    border-color var(--dur-fast, 120ms) ease;
+}
+.files-changed-open-btn:hover {
+  background: var(--bg-2);
+  color: var(--text-0);
+  border-color: var(--border-2, var(--border));
+}
+
+/* Unified inline diff preview shown when a row is expanded. */
+.inline-diff {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  background: var(--bg-0, #0a0a0a);
+  border-top: 1px solid var(--border-2, var(--border));
+  padding: 6px 0;
+  overflow-x: auto;
+}
+.inline-diff-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 8px 14px;
+  color: var(--text-3);
+  font-style: italic;
+  background: var(--bg-0, #0a0a0a);
+  border-top: 1px solid var(--border-2, var(--border));
+}
+
+.inline-diff-line {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px;
+  white-space: pre;
+}
+.inline-diff-sign {
+  width: 10px;
+  flex-shrink: 0;
+  color: var(--text-3);
+  text-align: center;
+}
+.inline-diff-text {
+  flex: 1;
+  color: var(--text-1);
+  white-space: pre;
+}
+
+.inline-diff-add {
+  background: rgba(34, 197, 94, 0.08);
+}
+.inline-diff-add .inline-diff-sign {
+  color: #22c55e;
+}
+.inline-diff-add .inline-diff-text {
+  color: #86efac;
+}
+
+.inline-diff-remove {
+  background: rgba(239, 68, 68, 0.08);
+}
+.inline-diff-remove .inline-diff-sign {
+  color: #ef4444;
+}
+.inline-diff-remove .inline-diff-text {
+  color: #fca5a5;
+}
+
+.inline-diff-equal .inline-diff-text {
+  color: var(--text-3);
+}
+
+.inline-diff-sep {
+  padding: 2px 14px;
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  user-select: none;
 }
 
 .diff-chevron {

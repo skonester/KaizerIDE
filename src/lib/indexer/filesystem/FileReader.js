@@ -1,8 +1,9 @@
 import { createIndexedFile } from '../types/IndexedFile';
 import { SymbolExtractor } from '../extraction/SymbolExtractor';
+import { extractHeadings } from '../extraction/HeadingExtractor';
 
 /**
- * Reads files and extracts metadata for indexing
+ * Reads files and extracts metadata for indexing.
  */
 export class FileReader {
   constructor() {
@@ -27,10 +28,10 @@ export class FileReader {
         .join('/')
         .replace(/^\//, '') || '.';
 
-      // Extract symbols
+      // Extract symbols (now {name, line}) and light headings.
       const symbols = this.symbolExtractor.extract(content, ext);
+      const headings = extractHeadings(content, ext);
 
-      // Create indexed file object
       const indexedFile = createIndexedFile({
         path: filePath,
         name,
@@ -40,10 +41,10 @@ export class FileReader {
         lines: lines.length,
         preview: lines.slice(0, 50).join('\n'),
         symbols: symbols || [],
-        indexed: Date.now()
+        headings: headings || [],
+        indexed: Date.now(),
       });
 
-      // Use updateFile instead of add to support incremental updates
       indexStore.updateFile(filePath, indexedFile);
     } catch (e) {
       // Skip files that can't be read

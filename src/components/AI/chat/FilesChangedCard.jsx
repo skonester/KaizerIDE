@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Icon from '../../Common/Icon';
 import { toast } from '../../../lib/stores/toastStore';
+import { computeLineDiff, summarizeDiff } from '../../../lib/diff/lineDiff';
 
 /**
  * Map file extension to a Lucide icon name + a CSS accent color variable.
@@ -43,10 +44,12 @@ function getFileIcon(name) {
 
 /**
  * Card showing the set of files changed in the current agent turn,
- * with aggregate +/- line counts and per-file rows + Keep/Undo controls.
+ * with aggregate +/- line counts, per-file rows + Keep/Undo controls,
+ * and an inline unified-diff preview for each file (click a row to toggle).
  */
 function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
   const [expanded, setExpanded] = useState(true);
+  const [openDiff, setOpenDiff] = useState(null);
 
   const totalAdded = files.reduce((sum, f) => sum + f.addedLines, 0);
   const totalRemoved = files.reduce((sum, f) => sum + f.removedLines, 0);
@@ -104,29 +107,57 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
               file.name || (file.path ? file.path.split(/[\\/]/).pop() : 'unknown');
             const isNewFile = file.isNew || undoStack[file.path] === null;
             const iconInfo = getFileIcon(fileName);
+            const isOpen = openDiff === file.path;
 
             return (
-              <div
-                key={idx}
-                className="files-changed-row"
-                onClick={() => onOpenFile && onOpenFile(file.path)}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="files-changed-row-left">
-                  {isNewFile && <span className="new-file-indicator">+</span>}
-                  <span className="files-changed-icon" style={{ color: iconInfo.color }}>
-                    <Icon name={iconInfo.name} size={13} />
-                  </span>
-                  <span className="files-changed-filename">{fileName}</span>
-                  <span className="files-changed-dirpath">{dirPath}</span>
+              <div key={idx} className="files-changed-row-wrap">
+                <div
+                  className={`files-changed-row ${isOpen ? 'is-open' : ''}`}
+                  onClick={() =>
+                    setOpenDiff((cur) => (cur === file.path ? null : file.path))
+                  }
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="files-changed-row-left">
+                    <Icon
+                      name={isOpen ? 'ChevronDown' : 'ChevronRight'}
+                      size={12}
+                      className="files-changed-row-chevron"
+                    />
+                    {isNewFile && <span className="new-file-indicator">+</span>}
+                    <span className="files-changed-icon" style={{ color: iconInfo.color }}>
+                      <Icon name={iconInfo.name} size={13} />
+                    </span>
+                    <span className="files-changed-filename">{fileName}</span>
+                    <span className="files-changed-dirpath">{dirPath}</span>
+                  </div>
+                  <div className="files-changed-row-right">
+                    {file.addedLines > 0 && <span className="stat-add">+{file.addedLines}</span>}
+                    {file.removedLines > 0 && (
+                      <span className="stat-remove">-{file.removedLines}</span>
+                    )}
+                    <button
+                      className="files-changed-open-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenFile) onOpenFile(file.path);
+                      }}
+                      title="Open in editor"
+                      aria-label="Open in editor"
+                      type="button"
+                    >
+                      <Icon name="ExternalLink" size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div className="files-changed-row-right">
-                  {file.addedLines > 0 && <span className="stat-add">+{file.addedLines}</span>}
-                  {file.removedLines > 0 && (
-                    <span className="stat-remove">-{file.removedLines}</span>
-                  )}
-                </div>
+                {isOpen && (
+                  <InlineDiff
+                    originalContent={undoStack[file.path]}
+                    newContent={file.content || ''}
+                    isNewFile={isNewFile}
+                  />
+                )}
               </div>
             );
           })}
@@ -135,5 +166,57 @@ function FilesChangedCard({ files, undoStack, onUndo, onAccept, onOpenFile }) {
     </div>
   );
 }
+
+/**
+ * Inline unified-diff preview for a single file. Computed lazily via
+ * useMemo on the row's open state so closed rows don't pay for the diff.
+ */
+const InlineDiff = React.memo(function InlineDiff({
+  originalContent,
+  newContent,
+  isNewFile,
+}) {
+  const hunks = useMemo(() => {
+    if (isNewFile) {
+      // Brand new file — show it as all-added.
+      return (newContent || '').split('\n').map((line, i) => ({
+        kind: 'add',
+        line,
+        newNum: i + 1,
+      }));
+    }
+    const full = computeLineDiff(originalContent || '', newContent || '');
+    return summarizeDiff(full, { context: 2, maxLines: 24 });
+  }, [originalContent, newContent, isNewFile]);
+
+  if (hunks.length === 0) {
+    return (
+      <div className="inline-diff inline-diff-empty">
+        No textual changes
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-diff" role="region" aria-label="Diff preview">
+      {hunks.map((h, i) => {
+        if (h.kind === 'sep') {
+          return (
+            <div key={i} className="inline-diff-sep">
+              <span>...</span>
+            </div>
+          );
+        }
+        const sign = h.kind === 'add' ? '+' : h.kind === 'remove' ? '-' : ' ';
+        return (
+          <div key={i} className={`inline-diff-line inline-diff-${h.kind}`}>
+            <span className="inline-diff-sign">{sign}</span>
+            <span className="inline-diff-text">{h.line}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
 
 export default React.memo(FilesChangedCard);

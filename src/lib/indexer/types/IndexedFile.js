@@ -7,15 +7,16 @@
 /**
  * IndexedFile shape:
  * {
- *   path: string,           // Absolute file path
- *   name: string,           // File name
- *   dir: string,            // Relative directory from workspace root
- *   ext: string,            // File extension (e.g., '.js')
- *   size: number,           // File size in bytes
- *   lines: number,          // Number of lines
- *   preview: string,        // First 50 lines of content
- *   symbols: string[],      // Extracted function/class names
- *   indexed: number,        // Timestamp when indexed
+ *   path: string,                           // Absolute file path
+ *   name: string,                           // File name
+ *   dir: string,                            // Relative directory from workspace root
+ *   ext: string,                            // File extension (e.g., '.js')
+ *   size: number,                           // File size in bytes
+ *   lines: number,                          // Number of lines
+ *   preview: string,                        // First 50 lines of content
+ *   symbols: Array<{name,line}|string>,     // Extracted function/class names w/ line
+ *   headings: Array<{text,line}>,           // Markdown headings or JSDoc summaries
+ *   indexed: number,                        // Timestamp when indexed
  * }
  */
 
@@ -31,7 +32,8 @@ export function createIndexedFile({
   lines,
   preview,
   symbols,
-  indexed
+  headings,
+  indexed,
 }) {
   return {
     path: path || '',
@@ -42,7 +44,8 @@ export function createIndexedFile({
     lines: lines || 0,
     preview: preview || '',
     symbols: symbols || [],
-    indexed: indexed || Date.now()
+    headings: headings || [],
+    indexed: indexed || Date.now(),
   };
 }
 

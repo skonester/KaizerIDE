@@ -11,10 +11,11 @@ export class Scorer {
       score += 10;
     }
 
-    // Symbol match = high score
+    // Symbol match = high score. Accept legacy strings and new {name,line} shape.
     if (file.symbols && Array.isArray(file.symbols)) {
-      file.symbols.forEach(s => {
-        if (s && typeof s === 'string' && s.toLowerCase().includes(normalized)) {
+      file.symbols.forEach((s) => {
+        const name = typeof s === 'string' ? s : s && s.name;
+        if (name && typeof name === 'string' && name.toLowerCase().includes(normalized)) {
           score += 5;
         }
       });

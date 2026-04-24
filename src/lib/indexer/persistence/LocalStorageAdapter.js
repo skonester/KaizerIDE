@@ -16,16 +16,20 @@ export class LocalStorageAdapter extends StorageAdapter {
     try {
       const key = this.keyGenerator.generate(workspacePath);
       
-      // Only save metadata, not full content (too large)
-      const meta = indexStore.map(f => ({
+      // Only save metadata, not full content (too large). Preview is
+      // persisted so search_index / grep_index still return snippets on
+      // reload without re-reading every file from disk.
+      const meta = indexStore.map((f) => ({
         path: f.path,
         name: f.name,
         dir: f.dir,
         ext: f.ext,
         size: f.size,
         lines: f.lines,
+        preview: f.preview,
         symbols: f.symbols,
-        indexed: f.indexed
+        headings: f.headings,
+        indexed: f.indexed,
       }));
 
       const data = {
