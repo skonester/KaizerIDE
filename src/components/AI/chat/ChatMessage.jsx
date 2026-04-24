@@ -3,8 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import MessageActions from './MessageActions';
 
-const ChatMessage = memo(({ message, index, onFileClick }) => {
+const ChatMessage = memo(
+  ({ message, index, onFileClick, onCopy, onRetry, onEdit, onFork, onPin }) => {
   if (message.role === 'error') {
     return (
       <div className="message">
@@ -20,13 +22,21 @@ const ChatMessage = memo(({ message, index, onFileClick }) => {
           {message.content}
           {message.context && message.context.length > 0 && (
             <div className="message-context">
-              {message.context.map(ctx => (
+              {message.context.map((ctx) => (
                 <span key={ctx.id} className="context-pill-small">
                   {ctx.type === 'file' ? '📄' : '📁'} {ctx.data.split(/[\\/]/).pop()}
                 </span>
               ))}
             </div>
           )}
+          <MessageActions
+            role="user"
+            pinned={!!message.pinned}
+            onCopy={onCopy ? () => onCopy(message, index) : undefined}
+            onEdit={onEdit ? () => onEdit(message, index) : undefined}
+            onRetry={onRetry ? () => onRetry(message, index) : undefined}
+            onPin={onPin ? () => onPin(message, index) : undefined}
+          />
         </div>
       </div>
     );
@@ -127,13 +137,21 @@ const ChatMessage = memo(({ message, index, onFileClick }) => {
           >
             {processedContent}
           </ReactMarkdown>
+          <MessageActions
+            role="assistant"
+            pinned={!!message.pinned}
+            onCopy={onCopy ? () => onCopy(message, index) : undefined}
+            onFork={onFork ? () => onFork(message, index) : undefined}
+            onPin={onPin ? () => onPin(message, index) : undefined}
+          />
         </div>
       </div>
     );
   }
 
   return null;
-});
+  }
+);
 
 ChatMessage.displayName = 'ChatMessage';
 

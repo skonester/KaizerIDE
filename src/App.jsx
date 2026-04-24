@@ -6,6 +6,7 @@ import ChatPanel from './components/AI/chat/ChatPanel';
 import TerminalPanel from './components/Terminal/TerminalPanel';
 import StatusBar from './components/Common/StatusBar';
 import ErrorToast from './components/Common/ErrorToast';
+import Toaster from './components/Common/Toaster';
 import { indexer } from './lib/indexer';
 import './App.css';
 
@@ -820,6 +821,7 @@ function App() {
           />
         )}
       </Suspense>
+      <Toaster />
     </div>
   );
 }

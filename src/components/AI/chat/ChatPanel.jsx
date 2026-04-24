@@ -12,9 +12,11 @@ import ChatHeader from './ChatHeader';
 import EmptyState from './EmptyState';
 import MessageList from './MessageList';
 import Composer from './Composer/Composer';
+import MessageActions from './MessageActions';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import { useChatStore } from '../../../lib/stores/chatStore';
+import { toast } from '../../../lib/stores/toastStore';
 import './ChatPanel.css';
 
 function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
@@ -806,17 +808,58 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   };
 
-  const showToast = (message) => {
-    const toast = document.createElement('div');
-    toast.className = 'toast-notification';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 150);
-    }, 2000);
+  // Backward-compat wrapper; real toast system lives in `toastStore`.
+  const showToast = (message) => toast.success(message);
+
+  // ── Per-message actions ──────────────────────────────────────────────
+  const handleCopyMessage = async (msg) => {
+    try {
+      await navigator.clipboard.writeText(msg.content ?? '');
+      toast.success('Copied to clipboard');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  /** Truncate messages at `idx` and reload that user message into the composer. */
+  const handleEditMessage = (msg, idx) => {
+    if (isStreaming) {
+      toast.warn('Stop the agent before editing');
+      return;
+    }
+    setInput(msg.content ?? '');
+    setContextPills(msg.context ? [...msg.context] : []);
+    setMessages((prev) => prev.slice(0, idx));
+    textareaRef.current?.focus();
+  };
+
+  /** Drop everything after `idx` and re-run this user message through the agent. */
+  const handleRetryMessage = (msg, idx) => {
+    if (isStreaming) {
+      toast.warn('Stop the agent before retrying');
+      return;
+    }
+    setMessages((prev) => prev.slice(0, idx));
+    setInput(msg.content ?? '');
+    setContextPills(msg.context ? [...msg.context] : []);
+    // Defer one tick so state flushes before submission.
+    setTimeout(() => handleSend(), 0);
+  };
+
+  /** Start a new chat seeded with the prefix up to (and including) this message. */
+  const handleForkMessage = (_msg, idx) => {
+    const prefix = messages.slice(0, idx + 1);
+    setMessages(prefix);
+    setCurrentChatId(null);
+    setToolGroups({});
+    setCurrentTurnId(null);
+    toast.info('Forked into a new chat');
+  };
+
+  const handlePinMessage = (_msg, idx) => {
+    setMessages((prev) =>
+      prev.map((m, i) => (i === idx ? { ...m, pinned: !m.pinned } : m))
+    );
   };
 
   const extractFileFromArgs = (argsStr) => {
@@ -927,12 +970,12 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const renderMessage = (msg, idx) => {
     if (msg.role === 'user') {
       return (
-        <div key={idx} className="message-row user-row">
+        <div key={idx} className={`message-row user-row ${msg.pinned ? 'is-pinned' : ''}`}>
           <div className="user-message">
             {msg.content}
             {msg.context && msg.context.length > 0 && (
               <div className="message-context-pills">
-                {msg.context.map(ctx => (
+                {msg.context.map((ctx) => (
                   <div key={ctx.id} className="context-pill-attached">
                     <span className="context-pill-icon">
                       {ctx.type === 'file' ? '📄' : ctx.type === 'folder' ? '📁' : '💻'}
@@ -944,6 +987,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 ))}
               </div>
             )}
+            <MessageActions
+              role="user"
+              pinned={!!msg.pinned}
+              onCopy={() => handleCopyMessage(msg, idx)}
+              onEdit={() => handleEditMessage(msg, idx)}
+              onRetry={() => handleRetryMessage(msg, idx)}
+              onPin={() => handlePinMessage(msg, idx)}
+            />
           </div>
         </div>
       );
@@ -1194,6 +1245,13 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             )}
               </>
             )}
+            <MessageActions
+              role="assistant"
+              pinned={!!msg.pinned}
+              onCopy={() => handleCopyMessage(msg, idx)}
+              onFork={() => handleForkMessage(msg, idx)}
+              onPin={() => handlePinMessage(msg, idx)}
+            />
           </div>
         </div>
       );
