@@ -49,8 +49,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
   const [filesChangedCard, setFilesChangedCard] = useState(null);
   
   const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
   // Tracks whether the user has manually scrolled away from the bottom.
-  // Updated by Virtuoso's atBottomStateChange via onAtBottomChange.
   const isUserScrolledUp = useRef(false);
   const streamingMsgRef = useRef(null);
   const streamingUpdateTimer = useRef(null);
@@ -69,8 +69,27 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   }, []);
 
-  // Auto-scroll is handled by Virtuoso (`followOutput="smooth"`).
-  // User-scroll detection is reported via MessageList's onAtBottomChange.
+  // Detect when the user manually scrolls away from the bottom so we stop
+  // auto-following. A small threshold avoids flip-flopping on sub-pixel deltas.
+  const handleMessagesScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    isUserScrolledUp.current = !atBottom;
+  }, []);
+
+  // Smooth-scroll to bottom if the user isn't actively reading older messages.
+  const scrollToBottom = useCallback((force = false) => {
+    if (!force && isUserScrolledUp.current) return;
+    requestAnimationFrame(() => {
+      const el = messagesContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }, []);
+
+  // Follow new messages and streaming token updates.
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, streamingMsg, scrollToBottom]);
 
   // Handle drag and drop from file explorer
   useEffect(() => {
@@ -1292,24 +1311,25 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onOpenHistory={() => setShowHistoryModal(true)}
       />
 
-      {/* Messages Area - wrapper keeps drag-and-drop listeners.
-          The virtualized list renders COMPLETED messages only; the live
-          streaming message + typing indicator are rendered immediately
-          below so they update without forcing Virtuoso to re-measure. */}
-      <div className="chat-messages-new" ref={messagesContainerRef}>
+      {/* Messages Area - owns its own scroll. Completed messages +
+          interleaved tool groups come from MessageList; the live
+          streaming message and typing indicator are rendered directly
+          below so token updates don't force a list re-measure. */}
+      <div
+        className="chat-messages-new"
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+      >
         {messages.length === 0 ? (
           <EmptyState onSuggestionClick={handleSuggestionClick} />
         ) : (
-          <div className="chat-messages-scroll">
+          <>
             <MessageList
               messages={messages}
               toolGroups={toolGroups}
               renderMessage={renderMessage}
               onToggleGroupExpanded={handleToggleGroupExpanded}
               onToggleRowExpanded={handleToggleRowExpanded}
-              onAtBottomChange={(atBottom) => {
-                isUserScrolledUp.current = !atBottom;
-              }}
             />
             {streamingMsg && (
               <div className="streaming-row">
@@ -1319,7 +1339,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
             {isAgentRunning && !streamingMsg?.content && !streamingMsg?.thinkingContent && (
               <TypingIndicator />
             )}
-          </div>
+            <div ref={messagesEndRef} style={{ height: 1 }} />
+          </>
         )}
       </div>
 

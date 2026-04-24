@@ -1,17 +1,17 @@
-import React, { useMemo, useRef, useCallback } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import React, { useMemo } from 'react';
 import ToolGroupCard from './ToolGroupCard';
 
 /**
- * MessageList - virtualized list of completed messages + tool groups only.
+ * MessageList - simple, reliable message list.
  *
- * IMPORTANT: the live streaming message is rendered by the host OUTSIDE
- * this component. Putting it inside Virtuoso's Footer caused re-measurement
- * on every token (~30fps) which restarted the `messageSlideIn` CSS
- * animation, making streamed text look like it was perpetually fading in.
+ * Renders every message and interleaved tool group in-order. The host
+ * component provides scrolling via `.chat-messages-new`, and puts the
+ * live streaming message + typing indicator immediately below this list.
  *
- * The host still renders an outer wrapper for drag-and-drop listeners;
- * MessageList fills that wrapper.
+ * Virtualization was attempted (react-virtuoso) but caused height-measure
+ * races with the streaming footer and fade-in animations. For realistic
+ * chat lengths (<~500 messages per session) plain DOM rendering is fine
+ * and avoids the virtualization bugs.
  */
 function MessageList({
   messages,
@@ -19,11 +19,9 @@ function MessageList({
   renderMessage,
   onToggleGroupExpanded,
   onToggleRowExpanded,
-  onAtBottomChange,
 }) {
-  const virtuosoRef = useRef(null);
-
-  // ── Build flat item list: messages + interleaved completed tool groups ──
+  // Build a flat list of renderables: a message followed optionally by the
+  // tool group that ran during the turn it started.
   const items = useMemo(() => {
     const groupsSorted = Object.values(toolGroups).sort((a, b) => a.turnId - b.turnId);
     const out = [];
@@ -36,48 +34,31 @@ function MessageList({
         userCount += 1;
         const group = groupsSorted[userCount - 1];
         if (group && group.tools.length > 0 && group.status === 'done') {
-          out.push({ kind: 'tool-group', group, key: `group-${group.turnId}` });
+          out.push({ kind: 'tool-group', group });
         }
       }
     }
     return out;
   }, [messages, toolGroups]);
 
-  const itemContent = useCallback(
-    (_, item) => {
-      if (item.kind === 'tool-group') {
-        return (
-          <ToolGroupCard
-            group={item.group}
-            onToggleExpanded={onToggleGroupExpanded}
-            onToggleRowExpanded={onToggleRowExpanded}
-          />
-        );
-      }
-      return renderMessage(item.msg, item.index);
-    },
-    [renderMessage, onToggleGroupExpanded, onToggleRowExpanded]
-  );
-
-  const computeItemKey = useCallback((_, item) => {
-    if (item.kind === 'tool-group') return item.key;
-    // Stable key for messages: prefer id if present, else role + index
-    return item.msg.id ?? `msg-${item.msg.role}-${item.index}`;
-  }, []);
-
   return (
-    <Virtuoso
-      ref={virtuosoRef}
-      className="chat-virtuoso"
-      style={{ height: '100%', width: '100%' }}
-      data={items}
-      computeItemKey={computeItemKey}
-      itemContent={itemContent}
-      followOutput="smooth"
-      atBottomThreshold={80}
-      atBottomStateChange={onAtBottomChange}
-      increaseViewportBy={{ top: 300, bottom: 600 }}
-    />
+    <>
+      {items.map((item) => {
+        if (item.kind === 'tool-group') {
+          return (
+            <ToolGroupCard
+              key={`group-${item.group.turnId}`}
+              group={item.group}
+              onToggleExpanded={onToggleGroupExpanded}
+              onToggleRowExpanded={onToggleRowExpanded}
+            />
+          );
+        }
+        const msg = item.msg;
+        const key = msg.id ?? `msg-${msg.role}-${item.index}`;
+        return <React.Fragment key={key}>{renderMessage(msg, item.index)}</React.Fragment>;
+      })}
+    </>
   );
 }
 
