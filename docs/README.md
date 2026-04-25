@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>AI-Powered Desktop IDE</strong><br>
-  A modern, lightweight code editor with integrated AI assistant
+  A modern, lightweight code editor with integrated local-first AI assistance
 </p>
 
 <p align="center">
@@ -18,381 +18,84 @@
 
 ---
 
-## ✨ Features
+## Documentation hub
 
-> 📸 **[View Screenshots](SCREENSHOTS.md)** - See KaizerIDE in action with detailed visual examples
+KaizerIDE combines a Monaco-based desktop editor, a context-aware AI assistant, local workspace indexing, SSH/SFTP file workflows, and privacy-first configuration for developers who want speed and control.
 
-### 📊 Repository Stats
+| Start here | Description |
+| --- | --- |
+| **[Quick Start](QUICK_START.md)** | Install KaizerIDE, open your first folder, configure AI, and learn core shortcuts. |
+| **[Configuration](CONFIGURATION.md)** | Set AI endpoints, editor preferences, appearance options, and indexing behavior. |
+| **[Features](FEATURES.md)** | Browse the main product areas and jump into detailed feature docs. |
+| **[Privacy](PRIVACY.md)** | Understand local-first guarantees, AI request routing, and workspace indexing privacy. |
+| **[Trust & Positioning](TRUST.md)** | Compare KaizerIDE with other IDEs and review the enterprise trust model. |
+| **[Building from Source](BUILDING.md)** | Run the app locally, build releases, and use linting/formatting commands. |
+
+---
+
+## Feature guides
+
+| Guide | Covers |
+| --- | --- |
+| **[AI Assistant](features/AI_ASSISTANT.md)** | Multi-agent chat, context pills, tool calling, planning, streaming, durable sessions, and providers. |
+| **[Editor](features/EDITOR.md)** | Monaco editing, tabs, syntax highlighting, IntelliSense, minimap, themes, and autosave. |
+| **[File Management](features/FILE_MANAGEMENT.md)** | File explorer, search, `.gitignore` awareness, SSH/SFTP, context menus, and drag/drop. |
+| **[UI & UX](features/UI_UX.md)** | Welcome screen, command palette, themes, appearance controls, glass effects, and lazy-loaded modals. |
+| **[Developer Tools](features/DEVELOPER_TOOLS.md)** | Terminal, settings, shortcuts, workspace indexer pointers, and quality workflows. |
+| **[Workspace Indexing](features/INDEXING.md)** | Local indexing, symbol extraction, search tools, cache behavior, performance, and troubleshooting. |
+
+---
+
+## Quick install
+
+1. Download the latest installer from **[GitHub Releases](https://github.com/randheimer/KaizerIDE/releases)**.
+2. Optionally verify the SHA256 checksum included with each release.
+3. Run `KaizerIDE-X.Y.Z.exe`.
+4. Open a folder with `Ctrl+O`, configure AI in Settings, and start coding.
+
+Read the full **[Quick Start](QUICK_START.md)** for the complete first-run flow.
+
+---
+
+## Highlights
+
+- **AI-powered assistant** - Agent, Planner, Ask, and Fixer modes for different coding workflows.
+- **Modern code editor** - Monaco editor with multi-tab editing and familiar shortcuts.
+- **Local-first indexing** - Fast workspace search and AI context discovery without cloud embeddings.
+- **Privacy-focused design** - No telemetry, no required account, and direct AI endpoint routing.
+- **Remote workspace support** - SSH/SFTP workflows for editing server files directly.
+- **Command palette** - `Ctrl+Shift+P` for keyboard-first navigation across IDE actions.
+
+---
+
+## Screenshots and stats
+
+- **[View Screenshots](SCREENSHOTS.md)** - See KaizerIDE in action.
+- **Repository traffic**:
 
 ![Clones](graphs/clones.png)
 
-### 🤖 AI-Powered Coding Assistant
-- **Multi-Agent System** - 4 specialized agents (Agent, Planner, Ask, Fixer) with distinct roles
-- **Context-Aware Chat** - AI understands your entire project structure
-- **Tool Calling** - AI can read files, search code, and analyze your workspace
-- **Multi-Model Support** - Works with any OpenAI-compatible API (Claude, GPT, Qwen, Gemini, local models)
-- **Streaming Responses** - Real-time AI responses with syntax highlighting
-- **Code Context Pills** - Attach files, folders, or selections to your prompts
-- **Planning System** - Create detailed implementation plans with real-time preview
-- **Durable Sessions** — _New in v4.4_ — Chat history survives restarts (disk-backed in `userData/`)
-
-### 💻 Modern Code Editor
-- **Monaco Editor** - The same powerful editor from VS Code
-- **Syntax Highlighting** - Support for 100+ programming languages
-- **IntelliSense** - Auto-completion and intelligent code suggestions
-- **Multi-Tab Editing** - Work on multiple files simultaneously
-- **Minimap** - Quick navigation for large files
-- **Customizable Themes** - Multiple editor themes including Kaizer Dark and Zero Syntax
-
-### ⚡ Command Palette _(New in v4.4)_
-- **`Ctrl+Shift+P`** opens a fuzzy command launcher (VS Code-style)
-- Instant access to every menu action: new file, save, toggle sidebar, open settings, reindex, SSH connect, and more
-- Keyboard-first navigation with arrow keys + Enter
-- Extensible command list — new features automatically surface here
-
-### 📁 File Management
-- **File Explorer** - Browse and manage your project files
-- **`.gitignore`-Aware** — _New in v4.4_ — File tree honors your repo's `.gitignore` automatically
-- **Non-Blocking File Tree** — _New in v4.4_ — Async concurrent directory reads; no more freezes on large repos
-- **SSH/SFTP Support** - Connect to remote servers and edit files directly
-- **Search Panel** - Fast file and text search across your workspace
-- **Context Menu Integration** - Right-click files/folders in Windows Explorer to open in KaizerIDE
-- **Drag & Drop** - Easy file operations
-
-### 🎨 Beautiful UI/UX
-- **Welcome Screen** - Quick access to recent projects and folders
-- **macOS & Windows Themes** - Native-looking window controls for both platforms
-- **Customizable Appearance** - Accent colors, compact mode, status bar toggle
-- **Glassmorphism Design** - Modern frosted glass effects and smooth animations
-- **Dark Mode** - Easy on the eyes for long coding sessions
-- **Lazy-Loaded Modals** — _New in v4.4_ — Smaller initial bundle, faster startup
-
-### 🔧 Developer Tools
-- **Integrated Terminal** - Run commands without leaving the IDE
-- **Settings Panel** - Customize editor, appearance, and AI models
-- **Keyboard Shortcuts** - Familiar shortcuts for productivity
-- **Auto-Save** - Never lose your work
-- **Workspace Indexer** - Local-first code indexing with real-time file watching
-
 ---
 
-## 🚀 Quick Start
+## Project resources
 
-### Installation
-
-1. **Download** the latest release from [GitHub Releases](https://github.com/randheimer/KaizerIDE/releases)
-2. **(Optional)** Verify the SHA256 checksum — every release ships a `.sha256` file:
-   ```powershell
-   (Get-FileHash .\KaizerIDE-X.Y.Z.exe -Algorithm SHA256).Hash
-   ```
-3. **Run** the installer (`KaizerIDE-X.Y.Z.exe`)
-4. **Launch** from Start Menu or Desktop shortcut
-
-### First Steps
-
-1. **Open a Folder** - File → Open Folder or `Ctrl+O`
-2. **Configure AI** - Settings → General → Set your API endpoint and key
-3. **Start Coding** - Open files and use the AI assistant for help
-4. **Discover Commands** - Press `Ctrl+Shift+P` for the Command Palette
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
+| Resource | Link |
 | --- | --- |
-| `Ctrl+Shift+P` | **Command Palette** (new!) |
-| `Ctrl+S` | Save current file |
-| `Ctrl+B` | Toggle sidebar |
-| `Ctrl+,` | Open settings |
-| `Ctrl+O` | Open folder |
-| `Ctrl+W` | Close tab |
+| **GitHub repository** | [randheimer/KaizerIDE](https://github.com/randheimer/KaizerIDE) |
+| **Releases** | [Download builds](https://github.com/randheimer/KaizerIDE/releases) |
+| **Bug reports** | [Open a bug issue](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug) |
+| **Feature requests** | [Request a feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement) |
+| **Contributing** | [Contribution guide](CONTRIBUTING.md) |
+| **Security** | [Security policy](SECURITY.md) |
+| **License** | [Custom License](LICENSE) |
 
 ---
 
-## 🔐 Privacy & Security
-
-**Built for developers who demand absolute local control.**
-
-KaizerIDE is engineered around a strict local-first philosophy: your code, your environment, and your workflow remain entirely under your control at all times.
-
-### Data Ownership & Privacy
-
-**We do not collect, store, or monetize your personal data.**
-
-* ❌ **No telemetry or behavioral tracking**
-* ❌ **No background analytics or usage profiling**
-* ❌ **No cloud sync or remote state storage**
-* ❌ **No required accounts or identity systems**
-* ❌ **No transmission of your local project data to our infrastructure**
-
-KaizerIDE operates without reliance on centralized data collection systems by design.
-
-### Local-First Architecture
-
-**Everything you work on stays on your device:**
-
-* ✅ All project files remain locally stored
-* ✅ All configuration data is saved on-device
-* ✅ All editor state is managed locally
-* ✅ No hidden background uploads or indexing services
-
-You remain the sole custodian of your development environment.
-
-### AI Integration
-
-**AI capabilities are fully user-controlled and endpoint-driven:**
-
-* 🔒 AI requests are sent **directly** to the API provider you configure
-* 🔒 KaizerIDE does **not** proxy, inspect, or log AI traffic
-* 🔒 Supports OpenAI-compatible endpoints, including **local models** (Ollama, LM Studio, LocalAI)
-* 🔒 Enables **fully offline workflows** when using local inference models
-
-You decide what data leaves your machine — and where it goes.
-
-### Security Posture
-
-**KaizerIDE is designed with minimal attack surface principles:**
-
-* 🛡️ No mandatory network services
-* 🛡️ No background data pipelines
-* 🛡️ No silent data collection mechanisms
-* 🛡️ No external authentication dependencies
-
-### Bottom Line
-
-KaizerIDE is a **local-first development environment** built for privacy-conscious engineers and enterprise workflows where data control is non-negotiable.
-
----
-
-## 🏢 Enterprise-Grade Trust & Positioning
-
-KaizerIDE is designed not just for individual developers, but for **professional and enterprise environments where security, compliance, and predictability matter**.
-
-* 🔐 **Deterministic data behavior** — no hidden services, no background syncing, no opaque data flows
-* 🧩 **Composable AI architecture** — integrate with internal LLMs, private endpoints, or fully air-gapped environments
-* 🏗️ **Infrastructure-independent design** — runs entirely without vendor lock-in or required cloud dependencies
-* 📦 **Audit-friendly model** — open architecture allows inspection and verification of behavior
-* ⚙️ **Deployment flexibility** — suitable for individual machines, secured teams, and isolated environments
-
-KaizerIDE is built for teams that require **control over convenience trade-offs**, ensuring that productivity tools never compromise data sovereignty.
-
-### KaizerIDE vs Other IDEs
-
-| Feature | KaizerIDE | VS Code | Cursor | Windsurf |
-|---------|-----------|---------|--------|----------|
-| **Telemetry** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (configurable) | ✅ Yes |
-| **Usage Tracking** | ❌ None | ✅ Yes (opt-out) | ✅ Yes (privacy mode available) | ✅ Yes |
-| **Cloud Sync** | ❌ None | ✅ Optional | ✅ Yes | ✅ Yes |
-| **Account Required** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
-| **Code Sent to Servers** | ❌ Never* | ⚠️ For some features | ✅ Yes (for AI features) | ✅ Yes (for AI features) |
-| **Workspace Indexing** | ✅ Local (no AI needed) | ⚠️ Manual search | ✅ Semantic AI (vector embeddings) | ✅ RAG-based AI (automatic) |
-| **Local AI Support** | ✅ Yes | ✅ Full | ⚠️ Limited (via Cursor Pro) | ⚠️ Limited |
-| **Open Source** | ✅ Yes | ✅ Yes | ❌ No (proprietary) | ❌ No (proprietary) |
-| **Self-Hosted AI** | ✅ Yes | ✅ Yes | ⚠️ Limited (via Cursor Pro) | ⚠️ Enterprise only |
-| **Bring Your Own API** | ✅ Yes | ✅ Yes | ⚠️ Limited (via Cursor Pro) | ✅ Yes (via Windsurf servers) |
-
-**\*Except when you use AI features - those go to YOUR chosen endpoint**  
-**\*\*Cursor routes all requests through their servers, even with custom API keys**
-
-### Why This Matters
-
-**The Key Differences:**
-
-- **KaizerIDE** - Your AI requests go **directly** to your chosen endpoint. Zero telemetry, zero tracking, always. **Local workspace indexing** means instant codebase understanding without AI or cloud dependency. Uses simple regex-based symbol extraction and file metadata—fast, private, and works offline.
-- **VS Code** - Highly flexible. Can be fully local and private with the right extensions (like Continue + Ollama). No built-in workspace indexing.
-- **Windsurf** - Powerful AI features with **AI-driven RAG indexing** that automatically scans your entire codebase, builds vector embeddings, and uses retrieval-augmented generation. The Cascade agent continuously pulls relevant context from your repo. More passive—AI decides what matters.
-- **Cursor** - Polished UX with **semantic AI indexing** that splits your code into chunks (functions, classes, files), embeds them into a vector index, and enables multi-file reasoning. Composer uses full-project embeddings for "Explain my project" and "Where is auth handled?" queries. Strong AI codebase understanding as a core feature.
-
-**Choose KaizerIDE if:**
-- You want **zero telemetry** by default (not opt-out)
-- You need **direct API connections** without intermediaries
-- You value **simplicity** and **lightweight** design
-- You want privacy without enterprise pricing
-- You need **local workspace indexing** that works offline without AI
-
-**Choose VS Code if:**
-- You need the **largest extension ecosystem**
-- You want **maximum flexibility** and customization
-- You're comfortable configuring privacy settings
-
-**Choose Windsurf if:**
-- You want **powerful agentic AI** (Cascade)
-- You're willing to use their cloud or pay for self-hosted
-- You need enterprise features and support
-- You want **AI-driven RAG indexing** that automatically understands your entire codebase
-
-**Choose Cursor if:**
-- You want the **most polished AI UX**
-- You don't mind cloud dependency
-- You're willing to pay for Pro features
-- You want **semantic vector indexing** with multi-file reasoning and "Explain my project" capabilities
-
-**Bottom line:** KaizerIDE is for developers who want **local-first AI coding with no telemetry, no required accounts, and no outbound data by default**. Our workspace indexing runs entirely on your machine—no AI, no cloud, no vector embeddings—just fast local symbol extraction and file metadata. Cursor and Windsurf offer more powerful AI-driven semantic understanding, but at the cost of sending your code to their servers.
-
----
-
-## ⚙️ Configuration
-
-### AI Setup
-
-1. Open Settings (`Ctrl+,`)
-2. Go to **General** tab
-3. Set your **Endpoint URL** (e.g., `http://localhost:20128/v1`)
-4. Add your **API Key** (optional, depends on your provider)
-
-### Supported AI Providers
-
-- **OpenAI** - GPT-4, GPT-3.5
-- **Anthropic Claude** - Via OpenAI-compatible proxy
-- **Local Models** - Ollama, LM Studio, LocalAI
-- **Custom Endpoints** - Any OpenAI-compatible API
-
-### Editor Customization
-
-**Settings → Editor:**
-- Font size, family, and cursor style
-- Tab size and word wrap
-- Minimap and line numbers
-- Auto-save options
-- Bracket colorization
-
-**Settings → Appearance:**
-- Window controls theme (macOS/Windows)
-- Accent color
-- Compact mode
-- Status bar visibility
-
----
-
-## 🎯 Use Cases
-
-### For Developers
-- Quick prototyping with AI assistance
-- Code review and refactoring
-- Learning new languages and frameworks
-- Debugging with AI help
-
-### For Students
-- Learning to code with AI tutor
-- Homework and project assistance
-- Understanding complex concepts
-- Free and open-source
-
-### For Teams
-- Lightweight alternative to heavy IDEs
-- Self-hosted AI for privacy
-- Customizable for team workflows
-- No subscription fees
-
----
-
-## 🛠️ Tech Stack
-
-- **Electron 41** — Desktop shell
-- **React 18** — UI framework
-- **Vite 6** — Build tool / dev server
-- **Monaco Editor** — VS Code's editor core
-- **react-markdown + remark-gfm** — Markdown rendering in the AI chat
-- **react-syntax-highlighter (Prism)** — Code block highlighting
-- **ssh2** — Native SSH/SFTP client for remote workspaces
-- **ESLint + Prettier** — Code quality tooling _(New in v4.4)_
-
----
-
-## 📦 Building from Source
-
-### Prerequisites
-- Node.js 20+
-- npm or yarn
-- Windows (for Windows builds)
-
-### Development
-
-```bash
-# Clone the repository
-git clone https://github.com/randheimer/KaizerIDE.git
-cd KaizerIDE
-
-# Install dependencies
-npm install
-
-# Run in development mode (Vite + Electron hot reload)
-npm run dev
-
-# Build the Vite bundle only
-npm run build
-
-# Build the Windows installer (.exe)
-npm run electron:build
-```
-
-### Code Quality (v4.4+)
-
-```bash
-npm run lint            # Run ESLint on src/
-npm run lint:fix        # Auto-fix lint issues
-npm run format          # Format with Prettier
-npm run format:check    # Check formatting without writing
-```
-
-### Release Process
-
-Commits on `main` automatically trigger a build via GitHub Actions. Version
-bumps follow conventional commit prefixes:
-
-| Prefix | Bump | Example |
-| --- | --- | --- |
-| `BREAKING CHANGE:` or `feat!:` | Major | `1.0.0` -> `2.0.0` |
-| `feat:` | Minor | `1.0.0` -> `1.1.0` |
-| `fix:` / `chore:` / `perf:` / `refactor:` | Patch | `1.0.0` -> `1.0.1` |
-| `docs:` / `style:` / `test:` | none (paths-ignored) | no release |
-
-Every release ships a SHA256 checksum alongside the `.exe` for verification.
-The release workflow also generates a changelog grouped by commit type
-(Features / Fixes / Performance / Refactors / Chores).
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Ways to Contribute
-- 🐛 Report bugs
-- 💡 Suggest features
-- 📝 Improve documentation
-- 🔧 Submit pull requests
-- ⭐ Star the project
-
----
-
-## 📝 License
-
-KaizerIDE is open-source software licensed under a [Custom License](LICENSE).
-
-**Key Points:**
-- ✅ Free to use and modify
-- ✅ Must include attribution to original author
-- ❌ Commercial use requires permission
-- ✅ Open source with restrictions
-
----
-
-## 🔗 Links
-
-- [GitHub Repository](https://github.com/randheimer/KaizerIDE)
-- [Report a Bug](https://github.com/randheimer/KaizerIDE/issues/new?labels=bug)
-- [Request a Feature](https://github.com/randheimer/KaizerIDE/issues/new?labels=enhancement)
-- [Releases](https://github.com/randheimer/KaizerIDE/releases)
-
----
-
-## 💬 Support
-
-Need help? Have questions?
-
-- 📖 Check the [documentation](https://github.com/randheimer/KaizerIDE#readme)
-- 🐛 [Open an issue](https://github.com/randheimer/KaizerIDE/issues)
-- ⭐ Star the project if you find it useful!
+## Support
+
+- **Documentation** - Start with this hub and follow the topic links above.
+- **Issues** - Use [GitHub Issues](https://github.com/randheimer/KaizerIDE/issues) for bugs and requests.
+- **Community** - Star the project if KaizerIDE is useful to you.
 
 ---
 
