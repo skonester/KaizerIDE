@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electron', {
   saveWorkspacePath: (workspacePath) => ipcRenderer.invoke('save-workspace-path', workspacePath),
   loadWorkspacePath: () => ipcRenderer.invoke('load-workspace-path'),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+  getFileOutline: (filePath) => ipcRenderer.invoke('get-file-outline', filePath),
   
   // Context menu integration - get path passed from command line
   getOpenPath: () => ipcRenderer.invoke('get-open-path'),

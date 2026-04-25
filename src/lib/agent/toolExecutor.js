@@ -210,6 +210,130 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
         .join('\n\n');
     }
 
+    case 'get_file_outline': {
+      const fullPath = workspacePath
+        ? joinPath(workspacePath, args.path)
+        : args.path;
+      const result = await window.electron.getFileOutline(fullPath);
+      if (result.success) {
+        const outline = result.outline;
+        if (!outline || outline.length === 0) {
+          return `No symbols found in ${args.path}`;
+        }
+        return outline
+          .map(item => {
+            const indent = '  '.repeat(item.level || 0);
+            return `${indent}${item.kind} ${item.name} (line ${item.line})`;
+          })
+          .join('\n');
+      } else {
+        return `Error getting file outline: ${result.error}`;
+      }
+    }
+
+    case 'patch_file': {
+      const fullPath = workspacePath
+        ? joinPath(workspacePath, args.path)
+        : args.path;
+      
+      // Read current content
+      const readResult = await window.electron.readFile(fullPath);
+      if (!readResult.success) {
+        return `Error reading file for patching: ${readResult.error}`;
+      }
+      
+      const originalContent = readResult.content;
+      
+      // Check if old text exists
+      if (!originalContent.includes(args.oldText)) {
+        return `Error: Could not find exact match for oldText in ${args.path}. The text may have changed or whitespace may not match exactly.`;
+      }
+      
+      // Apply patch
+      const newContent = originalContent.replace(args.oldText, args.newText);
+      
+      // Write patched content
+      const writeResult = await window.electron.writeFile(fullPath, newContent);
+      if (writeResult.success) {
+        // Dispatch event to notify UI of file change
+        window.dispatchEvent(new CustomEvent('kaizer:file-written', {
+          detail: {
+            path: fullPath,
+            type: 'modified',
+            content: newContent,
+            originalContent: originalContent,
+            oldContent: originalContent,
+            newContent: newContent
+          }
+        }));
+        return `File patched successfully: ${args.path}`;
+      } else {
+        return `Error writing patched file: ${writeResult.error}`;
+      }
+    }
+
+    case 'get_symbol_definition': {
+      const results = indexer.search(args.symbol, 50);
+      if (results.length === 0) {
+        return `No definition found for symbol "${args.symbol}"`;
+      }
+      
+      // Filter for actual definitions (functions, classes, etc.)
+      const definitions = results.filter(f => {
+        if (!f.symbols || !Array.isArray(f.symbols)) return false;
+        return f.symbols.some(s => {
+          const name = typeof s === 'string' ? s : s.name;
+          return name && name.toLowerCase().includes(args.symbol.toLowerCase());
+        });
+      });
+      
+      if (definitions.length === 0) {
+        return `Symbol "${args.symbol}" found in files but no clear definition located. Try using search_index or grep_index for more results.`;
+      }
+      
+      // Return top matches with context
+      return definitions.slice(0, 5).map(f => {
+        const symbolInfo = f.symbols
+          .filter(s => {
+            const name = typeof s === 'string' ? s : s.name;
+            return name && name.toLowerCase().includes(args.symbol.toLowerCase());
+          })
+          .map(s => typeof s === 'string' ? s : `${s.name} (line ${s.line})`)
+          .join(', ');
+        
+        let output = `${f.path}\n  Symbols: ${symbolInfo}`;
+        if (f.preview) {
+          const lines = f.preview.split('\n').slice(0, 10);
+          const snippet = lines.map((ln, i) => `  ${String(i + 1).padStart(4, ' ')}  ${ln}`).join('\n');
+          output += `\n${snippet}`;
+        }
+        return output;
+      }).join('\n\n');
+    }
+
+    case 'find_references': {
+      const results = indexer.grep(args.symbol, 100);
+      if (results.length === 0) {
+        return `No references found for symbol "${args.symbol}"`;
+      }
+      
+      // Group by file
+      const byFile = new Map();
+      for (const r of results) {
+        if (!byFile.has(r.path)) byFile.set(r.path, []);
+        byFile.get(r.path).push(r);
+      }
+      
+      return Array.from(byFile.entries())
+        .map(([path, matches]) => {
+          const lines = matches
+            .map((m) => `  Line ${String(m.line).padStart(4, ' ')}: ${m.content.trim()}`)
+            .join('\n');
+          return `${path} (${matches.length} reference${matches.length > 1 ? 's' : ''})\n${lines}`;
+        })
+        .join('\n\n');
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }

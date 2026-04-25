@@ -737,70 +737,113 @@ ipcMain.handle('get-file-info', async (event, filePath) => {
   }
 });
 
-// File system watcher functions
-function startWatching(dirPath) {
-  // Stop existing watcher if any
-  stopWatching();
-  
-  if (!dirPath) return;
-  
-  watchedPath = dirPath;
-  
+ipcMain.handle('get-file-outline', async (event, filePath) => {
   try {
-    // Use fs.watch for directory monitoring
-    fileWatcher = fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
-      if (!filename) return;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const ext = path.extname(filePath).toLowerCase();
+    const outline = [];
+    
+    // Simple regex-based parsing for common languages
+    if (['.js', '.jsx', '.ts', '.tsx', '.mjs'].includes(ext)) {
+      // Match functions, classes, methods
+      const functionRegex = /(?:export\s+)?(?:async\s+)?function\s+(\w+)/g;
+      const arrowFunctionRegex = /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
+      const classRegex = /(?:export\s+)?class\s+(\w+)/g;
+      const methodRegex = /^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*{/gm;
       
-      // Ignore changes in certain directories
-      const ignoredPaths = ['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea'];
-      const shouldIgnore = ignoredPaths.some(ignored => filename.includes(ignored));
+      const lines = content.split('\n');
       
-      if (shouldIgnore) return;
-      
-      // Debounce: clear existing timeout and set new one
-      if (refreshTimeout) {
-        clearTimeout(refreshTimeout);
+      // Find functions
+      let match;
+      while ((match = functionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
       }
       
-      refreshTimeout = setTimeout(async () => {
-        // Send refresh event to renderer
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          // Build fresh tree and send it
-          try {
-            const tree = await buildFileTree(dirPath);
-            mainWindow.webContents.send('file-system-changed', { tree, path: dirPath });
-            console.log('[FileWatcher] Tree refreshed after file change:', filename);
-          } catch (err) {
-            console.error('Error building tree after file change:', err);
-          }
+      // Find arrow functions
+      while ((match = arrowFunctionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
+      }
+      
+      // Find classes
+      while ((match = classRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'class', name: match[1], line, level: 0 });
+      }
+      
+      // Find methods (inside classes)
+      while ((match = methodRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        const name = match[1];
+        // Skip if it's a keyword
+        if (!['if', 'for', 'while', 'switch', 'catch'].includes(name)) {
+          outline.push({ kind: 'method', name, line, level: 1 });
         }
-        refreshTimeout = null;
-      }, 300); // 300ms debounce
-    });
-    
-    console.log('[FileWatcher] Started watching:', dirPath);
-  } catch (error) {
-    console.error('[FileWatcher] Error starting watcher:', error);
-  }
-}
-
-function stopWatching() {
-  if (refreshTimeout) {
-    clearTimeout(refreshTimeout);
-    refreshTimeout = null;
-  }
-  
-  if (fileWatcher) {
-    try {
-      fileWatcher.close();
-      console.log('[FileWatcher] Stopped watching:', watchedPath);
-    } catch (err) {
-      console.error('[FileWatcher] Error stopping watcher:', err);
+      }
+    } else if (['.py'].includes(ext)) {
+      // Python: classes and functions
+      const classRegex = /^class\s+(\w+)/gm;
+      const functionRegex = /^(?:\s*)def\s+(\w+)/gm;
+      
+      let match;
+      while ((match = classRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'class', name: match[1], line, level: 0 });
+      }
+      
+      while ((match = functionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        const indent = match[0].match(/^\s*/)[0].length;
+        const level = indent > 0 ? 1 : 0;
+        outline.push({ kind: 'function', name: match[1], line, level });
+      }
+    } else if (['.go'].includes(ext)) {
+      // Go: functions and types
+      const functionRegex = /^func\s+(?:\([^)]+\)\s+)?(\w+)/gm;
+      const typeRegex = /^type\s+(\w+)/gm;
+      
+      let match;
+      while ((match = functionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
+      }
+      
+      while ((match = typeRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'type', name: match[1], line, level: 0 });
+      }
+    } else if (['.rs'].includes(ext)) {
+      // Rust: functions, structs, impls
+      const functionRegex = /^(?:pub\s+)?fn\s+(\w+)/gm;
+      const structRegex = /^(?:pub\s+)?struct\s+(\w+)/gm;
+      const implRegex = /^impl(?:<[^>]+>)?\s+(\w+)/gm;
+      
+      let match;
+      while ((match = functionRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'function', name: match[1], line, level: 0 });
+      }
+      
+      while ((match = structRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'struct', name: match[1], line, level: 0 });
+      }
+      
+      while ((match = implRegex.exec(content)) !== null) {
+        const line = content.substring(0, match.index).split('\n').length;
+        outline.push({ kind: 'impl', name: match[1], line, level: 0 });
+      }
     }
-    fileWatcher = null;
-    watchedPath = null;
+    
+    // Sort by line number
+    outline.sort((a, b) => a.line - b.line);
+    
+    return { success: true, outline };
+  } catch (error) {
+    return { success: false, error: error.message, outline: [] };
   }
-}
+});
 
 // SSH Connection Handler
 ipcMain.handle('connect-ssh', async (event, config) => {

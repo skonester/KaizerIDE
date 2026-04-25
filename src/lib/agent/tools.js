@@ -148,5 +148,89 @@ export const TOOLS = [
         required: ['query']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_file_outline',
+      description: 'Get a structured outline of a file showing all functions, classes, methods, and exports. Returns AST-based structure without reading the entire file content. Perfect for understanding file organization quickly.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file to analyze (relative to workspace root)'
+          }
+        },
+        required: ['path']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'patch_file',
+      description: 'Apply a precise patch to a file by replacing specific old text with new text. More surgical than rewriting entire files. Useful for making targeted changes to large files.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file to patch (relative to workspace root)'
+          },
+          oldText: {
+            type: 'string',
+            description: 'Exact text to find and replace (must match exactly including whitespace)'
+          },
+          newText: {
+            type: 'string',
+            description: 'New text to replace the old text with'
+          }
+        },
+        required: ['path', 'oldText', 'newText']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_symbol_definition',
+      description: 'Find the definition location of a symbol (function, class, variable, etc.). Returns file path, line number, and surrounding code context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          symbol: {
+            type: 'string',
+            description: 'Name of the symbol to find (e.g., function name, class name, variable name)'
+          },
+          contextFile: {
+            type: 'string',
+            description: 'Optional: file path where the symbol is used (helps with scoping)'
+          }
+        },
+        required: ['symbol']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'find_references',
+      description: 'Find all references/usages of a symbol across the workspace. Returns list of locations where the symbol is used with file path, line number, and code context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          symbol: {
+            type: 'string',
+            description: 'Name of the symbol to find references for'
+          },
+          definitionFile: {
+            type: 'string',
+            description: 'Optional: file path where the symbol is defined (helps with accuracy)'
+          }
+        },
+        required: ['symbol']
+      }
+    }
   }
 ];
