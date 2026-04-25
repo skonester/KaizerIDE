@@ -58,3 +58,20 @@
 .toast-close:hover {
   opacity: 1;
 }
+
+/* Cursor-v2 polish pass */
+.error-toast {
+  background: rgba(127, 29, 29, 0.74);
+  border: 1px solid rgba(239, 68, 68, 0.52);
+  box-shadow: var(--ui-elevation-panel), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.toast-close {
+  border-radius: 4px;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}

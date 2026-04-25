@@ -113,3 +113,29 @@
   color: #10b981;
   font-weight: 500;
 }
+
+/* Cursor-v2 polish pass */
+.status-bar {
+  background: linear-gradient(180deg, rgba(8, 8, 8, 0.92), rgba(8, 8, 8, 0.8));
+  border-top: 1px solid var(--ui-glass-border);
+  backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+  -webkit-backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+}
+
+.status-indexer,
+.status-ssh {
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.status-indexer:hover {
+  background: var(--interactive-hover);
+  border-color: var(--ui-glass-border);
+}
+
+.status-file {
+  color: var(--text-1);
+}

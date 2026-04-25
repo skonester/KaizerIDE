@@ -8,6 +8,9 @@
   padding: 0 12px;
   -webkit-app-region: drag;
   user-select: none;
+  position: relative;
+  z-index: 120;
+  overflow: visible;
 }
 
 .titlebar-macos {
@@ -29,6 +32,12 @@
   align-items: center;
   gap: 8px;
   -webkit-app-region: no-drag;
+  overflow: visible;
+}
+
+.titlebar-left,
+.titlebar-center {
+  overflow: visible;
 }
 
 .titlebar-macos .titlebar-right {
@@ -166,4 +175,44 @@
 .titlebar-btn.close:hover {
   background: #e81123;
   color: white;
+}
+
+/* Cursor-v2 polish pass */
+.titlebar {
+  background: linear-gradient(180deg, var(--ui-glass-medium), var(--ui-glass-strong));
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+  border-bottom: 1px solid var(--ui-glass-border);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.logo {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 16px rgba(168, 85, 247, 0.2);
+}
+
+.titlebar-icon-btn {
+  border: 1px solid transparent;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.titlebar-icon-btn:hover {
+  background: var(--interactive-hover);
+  border-color: var(--ui-glass-border);
+  box-shadow: var(--focus-ring-subtle, 0 0 0 1px rgba(168, 85, 247, 0.3));
+}
+
+.titlebar-btn {
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-0);
 }

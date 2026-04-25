@@ -474,3 +474,44 @@
   font-size: 12px;
   color: var(--text-2);
 }
+
+/* Cursor-v2 polish pass */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.remote-connection-modal {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-modal), inset 0 1px 0 var(--ui-glass-highlight);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.modal-tab:hover {
+  background: var(--interactive-hover);
+}
+
+.modal-tab.active {
+  background: rgba(168, 85, 247, 0.16);
+}
+
+.form-input,
+.form-textarea,
+.auth-type-btn,
+.connection-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.connection-item:hover,
+.auth-type-btn:hover {
+  background: var(--interactive-hover);
+}

@@ -763,6 +763,7 @@
   word-break: break-all;
   overflow: hidden;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   max-width: 100%;
@@ -1080,4 +1081,60 @@
   opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* Cursor-v2 polish pass */
+.file-picker-overlay {
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.file-picker-modal {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-modal), inset 0 1px 0 var(--ui-glass-highlight);
+}
+
+.file-picker-header,
+.file-picker-footer,
+.files-toolbar,
+.file-list-header {
+  border-color: var(--ui-glass-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.file-row,
+.grid-cell,
+.bookmark-item,
+.sort-option,
+.context-menu-item {
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.file-row:hover,
+.grid-cell:hover,
+.bookmark-item:hover,
+.sort-option:hover,
+.context-menu-item:hover {
+  background: var(--interactive-hover);
+}
+
+.file-row.selected,
+.grid-cell.selected,
+.bookmark-item.active {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: rgba(168, 85, 247, 0.38);
+}
+
+.sort-dropdown-menu,
+.file-context-menu {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
 }

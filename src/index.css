@@ -16,6 +16,17 @@
   --accent-bg: rgba(168, 85, 247, 0.08);
   --font-ui: system-ui, -apple-system, sans-serif;
   --font-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+
+  --ui-glass-soft: var(--glass-soft, rgba(17, 17, 17, 0.58));
+  --ui-glass-medium: var(--glass-medium, rgba(17, 17, 17, 0.72));
+  --ui-glass-strong: var(--glass-strong, rgba(13, 13, 13, 0.86));
+  --ui-glass-border: var(--glass-border, rgba(168, 85, 247, 0.2));
+  --ui-glass-highlight: var(--glass-highlight, rgba(255, 255, 255, 0.06));
+  --ui-glass-blur: var(--glass-blur, 18px);
+  --ui-elevation-panel: var(--elevation-panel, 0 14px 38px rgba(0, 0, 0, 0.42));
+  --ui-elevation-float: var(--elevation-float, 0 22px 56px rgba(0, 0, 0, 0.56));
+  --ui-elevation-modal: var(--elevation-modal, 0 32px 78px rgba(0, 0, 0, 0.68));
+  --ui-focus-ring: var(--focus-ring, 0 0 0 2px rgba(168, 85, 247, 0.34));
 }
 
 * {
@@ -32,6 +43,9 @@ html, body {
 body {
   font-family: var(--font-ui);
   background: var(--bg-0);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(168, 85, 247, 0.08), transparent 40%),
+    radial-gradient(circle at 88% 0%, rgba(139, 92, 246, 0.05), transparent 34%);
   color: var(--text-0);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -66,6 +80,12 @@ button {
   background: none;
   cursor: pointer;
   color: inherit;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease),
+    transform var(--dur-fast, 120ms) var(--ease-out, ease);
 }
 
 input, textarea {
@@ -78,6 +98,15 @@ input, textarea {
 
 input:focus, textarea:focus {
   border-color: var(--accent);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
 }
 
 /* Neutralize Monaco built-in context menu */

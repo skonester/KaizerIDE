@@ -764,6 +764,48 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         },
         signal: abortControllerRef.current.signal
       });
+
+      // Safety net: if an agent turn resolves without calling onDone,
+      // force-finalize to avoid a stuck loading state.
+      if (streamingMsgRef.current) {
+        const hasAssistantContent =
+          (streamingMsgRef.current.content || '').trim().length > 0 ||
+          (streamingMsgRef.current.thinkingBlocks || []).length > 0;
+
+        if (hasAssistantContent) {
+          setMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: streamingMsgRef.current.content || '',
+            contentSegments: streamingMsgRef.current.contentSegments || [''],
+            thinkingBlocks: streamingMsgRef.current.thinkingBlocks || []
+          }]);
+        }
+
+        setStreamingMsg(null);
+        streamingMsgRef.current = null;
+        setIsStreaming(false);
+        setIsAgentRunning(false);
+        setCurrentTurnId(null);
+        thinkStartTime.current = null;
+        clearTimeout(streamingUpdateTimer.current);
+        streamingUpdateTimer.current = null;
+
+        setToolGroups(prev => {
+          const group = prev[turnId];
+          if (!group) return prev;
+          return {
+            ...prev,
+            [turnId]: {
+              ...group,
+              status: 'done',
+              expanded: false
+            }
+          };
+        });
+
+        saveCurrentChat();
+      }
     } catch (error) {
         // Parse error message for better display
         let errorMessage = error.message;

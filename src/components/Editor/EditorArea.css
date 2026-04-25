@@ -899,3 +899,59 @@
   background: linear-gradient(135deg, #9333ea 0%, var(--accent) 100%);
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
 }
+
+/* Cursor-v2 polish pass */
+.editor-area {
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.88), rgba(9, 9, 9, 0.94));
+}
+
+.editor-tabs {
+  background: rgba(10, 10, 10, 0.82);
+  border-bottom: 1px solid var(--ui-glass-border);
+  backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+  -webkit-backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+}
+
+.editor-tab {
+  background: transparent;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid transparent;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.editor-tab:hover {
+  background: var(--interactive-hover);
+}
+
+.editor-tab.active {
+  background: rgba(168, 85, 247, 0.12);
+  border-top: 2px solid var(--accent);
+  border-right-color: rgba(168, 85, 247, 0.22);
+}
+
+.split-header {
+  background: rgba(13, 13, 13, 0.76);
+  border-bottom: 1px solid var(--ui-glass-border);
+}
+
+.editor-context-menu,
+.tab-context-menu {
+  background: var(--ui-glass-strong);
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+}
+
+.context-item:hover {
+  background: var(--interactive-hover);
+}
+
+.plan-action-btn {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-panel);
+}

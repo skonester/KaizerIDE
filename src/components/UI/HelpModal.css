@@ -415,3 +415,46 @@
 .help-btn-primary:active {
   transform: translateY(0);
 }
+
+/* Cursor-v2 polish pass */
+.help-modal-overlay {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.help-modal {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-modal), inset 0 1px 0 var(--ui-glass-highlight);
+}
+
+.help-modal-header,
+.help-modal-footer {
+  border-color: var(--ui-glass-border);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(109, 40, 217, 0.06));
+}
+
+.help-tabs {
+  background: rgba(0, 0, 0, 0.24);
+  border-right: 1px solid var(--ui-glass-border);
+}
+
+.help-tab:hover {
+  background: var(--interactive-hover);
+}
+
+.help-tab.active {
+  background: rgba(168, 85, 247, 0.24);
+}
+
+.help-feature-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.help-feature-card:hover {
+  border-color: rgba(168, 85, 247, 0.42);
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.16);
+}

@@ -434,3 +434,54 @@
 .toast-notification.show {
   transform: translateX(0);
 }
+
+/* Cursor-v2 polish pass */
+.file-explorer {
+  background: linear-gradient(180deg, rgba(14, 14, 14, 0.9), rgba(10, 10, 10, 0.92));
+}
+
+.explorer-header {
+  border-bottom: 1px solid var(--ui-glass-border);
+  background: rgba(12, 12, 12, 0.75);
+  backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+  -webkit-backdrop-filter: blur(calc(var(--ui-glass-blur) - 4px));
+}
+
+.tree-node {
+  border: 1px solid transparent;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    transform var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.tree-node:hover {
+  background: var(--interactive-hover);
+  border-color: rgba(168, 85, 247, 0.16);
+}
+
+.tree-node.active {
+  background: rgba(168, 85, 247, 0.16);
+  border-left: 2px solid var(--accent);
+  border-color: rgba(168, 85, 247, 0.38);
+}
+
+.context-menu {
+  background: var(--ui-glass-strong);
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+}
+
+.context-item:hover {
+  background: var(--interactive-hover);
+}
+
+.toast-notification {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-panel);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}

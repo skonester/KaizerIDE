@@ -107,3 +107,49 @@
   color: #8a8a8a;
   font-size: 13px;
 }
+
+/* Cursor-v2 polish pass */
+.command-palette-overlay {
+  background: rgba(0, 0, 0, 0.54);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.command-palette {
+  background: var(--ui-glass-strong);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: 12px;
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.command-palette-input {
+  border-bottom: 1px solid var(--ui-glass-border);
+}
+
+.command-palette-input:focus {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.command-palette-item {
+  border-radius: 8px;
+  margin: 0 6px;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.command-palette-item:hover {
+  background: var(--interactive-hover);
+}
+
+.command-palette-item.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(124, 58, 237, 0.16));
+  border: 1px solid rgba(168, 85, 247, 0.45);
+}
+
+.command-palette-group {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.08);
+}

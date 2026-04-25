@@ -292,3 +292,45 @@
     filter: blur(0);
   }
 }
+
+/* Cursor-v2 polish pass */
+.welcome-container,
+.welcome-card {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(168, 85, 247, 0.16), transparent 38%),
+    radial-gradient(circle at 92% 4%, rgba(109, 40, 217, 0.1), transparent 34%),
+    #0d0d0d;
+}
+
+.welcome-left,
+.welcome-right {
+  background: rgba(10, 10, 10, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.welcome-left {
+  border-right: 1px solid var(--ui-glass-border);
+}
+
+.btn-action,
+.recent-item {
+  border-color: rgba(168, 85, 247, 0.16);
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 120ms) var(--ease-out, ease),
+    transform var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.btn-action:hover,
+.recent-item:hover {
+  background: var(--interactive-hover);
+  border-color: rgba(168, 85, 247, 0.42);
+  box-shadow: var(--focus-ring-subtle, 0 0 0 1px rgba(168, 85, 247, 0.3));
+}
+
+.logo-icon {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.28);
+}

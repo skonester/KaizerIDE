@@ -97,4 +97,23 @@
   --z-popover: 9500;
   --z-toast: 9900;
   --z-command-palette: 10000;
+
+  /* ── Glass / elevation system ─────────────────────────────────────────── */
+  --glass-soft: rgba(17, 17, 17, 0.58);
+  --glass-medium: rgba(17, 17, 17, 0.72);
+  --glass-strong: rgba(13, 13, 13, 0.86);
+  --glass-border: rgba(168, 85, 247, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-blur: 18px;
+  --glass-blur-strong: 24px;
+
+  --elevation-panel: 0 14px 38px rgba(0, 0, 0, 0.42);
+  --elevation-float: 0 22px 56px rgba(0, 0, 0, 0.56);
+  --elevation-modal: 0 32px 78px rgba(0, 0, 0, 0.68);
+
+  /* ── Interaction / focus system ───────────────────────────────────────── */
+  --interactive-hover: rgba(168, 85, 247, 0.12);
+  --interactive-active: rgba(168, 85, 247, 0.2);
+  --focus-ring: 0 0 0 2px rgba(168, 85, 247, 0.34);
+  --focus-ring-subtle: 0 0 0 1px rgba(168, 85, 247, 0.3);
 }

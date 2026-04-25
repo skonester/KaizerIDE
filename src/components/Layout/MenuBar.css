@@ -4,11 +4,15 @@
   gap: 2px;
   height: 100%;
   -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 130;
+  overflow: visible;
 }
 
 .menu-item {
   position: relative;
   height: 100%;
+  overflow: visible;
 }
 
 .menu-button {
@@ -47,10 +51,11 @@
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.6),
     0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
-  padding: 4px;
-  z-index: 10000;
-  margin-top: 2px;
+  padding: 6px;
+  z-index: 20000;
+  margin-top: 6px;
   animation: menuDropdownIn 120ms ease forwards;
+  overflow: hidden;
 }
 
 .menu-bar-macos .menu-dropdown {
@@ -113,4 +118,38 @@
   height: 1px;
   background: rgba(255, 255, 255, 0.06);
   margin: 3px 6px;
+}
+
+/* Cursor-v2 polish pass */
+.menu-button {
+  border-radius: 6px;
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease),
+    box-shadow var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.menu-button:hover,
+.menu-button.active {
+  background: var(--interactive-hover);
+  color: var(--text-0);
+}
+
+.menu-dropdown {
+  background: var(--ui-glass-strong);
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(160%);
+  border: 1px solid var(--ui-glass-border);
+  box-shadow: var(--ui-elevation-float), inset 0 1px 0 var(--ui-glass-highlight);
+  border-radius: 12px;
+}
+
+.menu-dropdown-item {
+  transition:
+    background var(--dur-fast, 120ms) var(--ease-out, ease),
+    color var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.menu-dropdown-item:hover {
+  background: var(--interactive-hover);
 }
