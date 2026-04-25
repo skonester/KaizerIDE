@@ -845,6 +845,71 @@ ipcMain.handle('get-file-outline', async (event, filePath) => {
   }
 });
 
+// File system watcher functions
+function startWatching(dirPath) {
+  // Stop existing watcher if any
+  stopWatching();
+  
+  if (!dirPath) return;
+  
+  watchedPath = dirPath;
+  
+  try {
+    // Use fs.watch for directory monitoring
+    fileWatcher = fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      
+      // Ignore changes in certain directories
+      const ignoredPaths = ['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea'];
+      const shouldIgnore = ignoredPaths.some(ignored => filename.includes(ignored));
+      
+      if (shouldIgnore) return;
+      
+      // Debounce: clear existing timeout and set new one
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+      
+      refreshTimeout = setTimeout(async () => {
+        // Send refresh event to renderer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // Build fresh tree and send it
+          try {
+            const tree = await buildFileTree(dirPath);
+            mainWindow.webContents.send('file-system-changed', { tree, path: dirPath });
+            console.log('[FileWatcher] Tree refreshed after file change:', filename);
+          } catch (err) {
+            console.error('Error building tree after file change:', err);
+          }
+        }
+        refreshTimeout = null;
+      }, 300); // 300ms debounce
+    });
+    
+    console.log('[FileWatcher] Started watching:', dirPath);
+  } catch (error) {
+    console.error('[FileWatcher] Error starting watcher:', error);
+  }
+}
+
+function stopWatching() {
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout);
+    refreshTimeout = null;
+  }
+  
+  if (fileWatcher) {
+    try {
+      fileWatcher.close();
+      console.log('[FileWatcher] Stopped watching:', watchedPath);
+    } catch (err) {
+      console.error('[FileWatcher] Error stopping watcher:', err);
+    }
+    fileWatcher = null;
+    watchedPath = null;
+  }
+}
+
 // SSH Connection Handler
 ipcMain.handle('connect-ssh', async (event, config) => {
   try {
