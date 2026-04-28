@@ -88,6 +88,9 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   // Check if current tab is a plan.md preview (not the regular .md tab)
   const isPlanPreview = isPreviewTab && activeTab.toLowerCase().includes('plan-') && activeTab.includes('.md:preview');
 
+  // Check if current tab is a PowerShell script
+  const isPs1 = activeTab && activeTab.toLowerCase().endsWith('.ps1');
+
   // Turn a unified line-diff (from computeLineDiff) into two lists the
   // editor needs:
   //   addedLines:    [lineNumberInNew, ...]  — whole-line green tint
@@ -1486,6 +1489,31 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
               title="Ask Questions"
             >
               💬 Ask Questions
+            </button>
+          </div>
+        )}
+
+        {/* Action buttons for PowerShell scripts */}
+        {isPs1 && !isPreviewTab && activeTabData && (
+          <div className="plan-action-buttons">
+            <button 
+              className={`plan-action-btn run-btn ${activeTab.includes('start-local-ai') ? 'service-btn' : ''}`}
+              onClick={() => {
+                // Ensure terminal is visible first
+                window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
+                // Execute the script with a slightly longer delay to ensure mounting
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('kaizer:terminal-execute', {
+                    detail: { 
+                      command: `powershell -ExecutionPolicy Bypass -File "${activeTab}"`,
+                      cwd: activeTab.split(/[\\/]/).slice(0, -1).join('\\')
+                    }
+                  }));
+                }, 500);
+              }}
+              title={activeTab.includes('start-local-ai') ? "Start AI Server" : "Run Script in Terminal"}
+            >
+              {activeTab.includes('start-local-ai') ? "⚡ Start AI Server" : "▶ Run Script"}
             </button>
           </div>
         )}

@@ -33,6 +33,21 @@ It ships with **local workspace indexing** so the AI understands your entire cod
 
 ---
 
+## 🚀 Skonester Fork Enhancements
+
+This fork supercharges KaizerIDE with deep local AI integration and optimized performance:
+
+- **Automated AI CLI Tooling**: Instantly setup professional AI tools including Gemini CLI, Claude Code, Qwen, and more with a single command.
+- **Local AI Bridge Server**: Dedicated LiteLLM-powered bridge for seamless connectivity between the IDE and **Ollama**.
+- **GPU-Optimized Qwen Integration**: Pre-configured to use **Ollama** as the backend, specifically optimized for **Qwen 2.5 Coder** with forced GPU acceleration for instant responses.
+- **One-Click Setup**: New npm scripts for rapid environment initialization:
+  - `npm run install-ai-clis`: Installs and configures the AI CLI suite.
+  - `npm run start-ai`: Launches the local AI bridge server.
+
+See the **[Quick Start](QUICK_START.md)** for setup instructions.
+
+---
+
 ## Features
 
 <table>
@@ -109,8 +124,9 @@ It ships with **local workspace indexing** so the AI understands your entire cod
 
 1. Run `KaizerIDE-X.Y.Z.exe`.
 2. Open a folder with `Ctrl+O`.
-3. Configure your AI endpoint in **Settings → General**.
-4. Press `Ctrl+Shift+P` and start coding.
+3. (Optional) Run `npm run install-ai-clis` to setup local AI tools.
+4. Configure your AI endpoint in **Settings → General**.
+5. Press `Ctrl+Shift+P` and start coding.
 
 Optionally verify the SHA256 checksum shipped with each release. See the full **[Quick Start](QUICK_START.md)** for the complete first-run flow.
 
@@ -123,6 +139,8 @@ Optionally verify the SHA256 checksum shipped with each release. See the full **
 | Core IDE — editor, tabs, file explorer, terminal | ✅ Complete |
 | Multi-agent AI system (Agent / Planner / Ask / Fixer) | ✅ Complete |
 | Local workspace indexing with real-time file watching | ✅ Complete |
+| Local AI CLI suite (Gemini, Claude, Qwen, etc.) | ✅ Complete |
+| Optimized local model support (Qwen 2.5 Coder + GPU) | ✅ Complete |
 | Command palette, durable sessions, ESLint + Prettier | ✅ Complete |
 | Git UI — visual diff and commit history | 🚧 In progress |
 | Debugger integration | 📋 Planned |

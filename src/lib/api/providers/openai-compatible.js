@@ -77,6 +77,12 @@ export async function streamChat({ messages, settings, onToken, onDone, signal }
     if (error.name === 'AbortError') {
       throw new Error('Request cancelled');
     }
+    
+    // Catch generic fetch failures (DNS, connection refused, CSP, etc.)
+    if (error.message === 'Failed to fetch') {
+      throw new Error(`Failed to connect to ${endpoint}. Please ensure the AI provider is running and the endpoint URL is correct. (Reason: Network Error or CSP violation)`);
+    }
+    
     throw error;
   }
 }

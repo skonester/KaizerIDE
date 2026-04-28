@@ -71,6 +71,20 @@ For setup details, see **[Configuration](../CONFIGURATION.md)**.
 
 ---
 
+## AI CLI Tools
+
+To enhance your AI-powered development workflow, KaizerIDE includes a helper script to install popular AI CLI tools (Gemini, Claude Code, Letta, Vibe, etc.).
+
+You can run this installation script from the project root using:
+
+```bash
+npm run install-ai-clis
+```
+
+This script will check for `npm`, `pip`, and `uv` to install the latest versions of various AI assistants and utilities, ensuring they are available in your system path for use within the integrated terminal.
+
+---
+
 ## Privacy model
 
 AI traffic is sent directly to the endpoint you configure. KaizerIDE does not proxy, inspect, or log AI traffic.

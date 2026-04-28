@@ -5,8 +5,14 @@ function TerminalPanel({ workspacePath }) {
   const [terminals, setTerminals] = useState([]);
   const [activeTerminalId, setActiveTerminalId] = useState(null);
   const [splitView, setSplitView] = useState(false);
+  const terminalsRef = useRef([]);
   const outputRefs = useRef({});
   const inputRefs = useRef({});
+
+  // Sync ref with state
+  useEffect(() => {
+    terminalsRef.current = terminals;
+  }, [terminals]);
 
   useEffect(() => {
     // Auto-scroll to bottom when output changes
@@ -21,11 +27,64 @@ function TerminalPanel({ workspacePath }) {
       createNewTerminal('powershell');
     };
 
+    const handleExecuteCommand = (e) => {
+      const { command, cwd } = e.detail;
+      
+      // Use the ref to check current state
+      const currentTerminals = terminalsRef.current;
+
+      // If no terminal exists, create one
+      if (currentTerminals.length === 0) {
+        const newId = Date.now();
+        const newTerminal = {
+          id: newId,
+          name: `Terminal 1`,
+          shell: 'powershell',
+          output: [],
+          input: '',
+          cwd: cwd || workspacePath || 'C:\\',
+          history: [],
+          historyIndex: -1
+        };
+        
+        // Update both state and ref immediately
+        setTerminals([newTerminal]);
+        setActiveTerminalId(newId);
+        terminalsRef.current = [newTerminal];
+
+        // Execute
+        executeCommand(newId, command);
+      } else {
+        // Use active terminal or first one
+        const id = activeTerminalId || currentTerminals[0].id;
+        executeCommand(id, command);
+      }
+    };
+
     window.addEventListener('kaizer:new-terminal', handleNewTerminal);
+    window.addEventListener('kaizer:terminal-execute', handleExecuteCommand);
+
+    // Set up real-time output listener
+    const unsubscribe = window.electron.onTerminalOutput((data) => {
+      const { chunk, isError } = data;
+      // We don't have the terminalId in the event yet, so we apply to active terminal
+      // This is a simplification but works for the current use case
+      setTerminals(prev => prev.map(t => 
+        t.id === activeTerminalId 
+          ? { 
+              ...t, 
+              output: [...t.output, { type: isError ? 'error' : 'success', text: chunk, isPartial: true }]
+            }
+          : t
+      ));
+    });
+
     return () => {
       window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
+      window.removeEventListener('kaizer:terminal-execute', handleExecuteCommand);
+      unsubscribe();
     };
-  }, [terminals.length, workspacePath]);
+  }, [terminals, activeTerminalId, workspacePath]);
 
   const createNewTerminal = (shell = 'powershell') => {
     const newTerminal = {
@@ -53,8 +112,11 @@ function TerminalPanel({ workspacePath }) {
   const executeCommand = async (terminalId, command) => {
     if (!command.trim()) return;
 
-    const terminal = terminals.find(t => t.id === terminalId);
-    if (!terminal) return;
+    const terminal = terminalsRef.current.find(t => t.id === terminalId);
+    if (!terminal) {
+      console.error('[Terminal] Terminal not found for execution:', terminalId);
+      return;
+    }
 
     // Add command to output
     setTerminals(prev => prev.map(t => 

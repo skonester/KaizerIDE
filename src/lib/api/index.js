@@ -3,10 +3,15 @@
  */
 import * as openaiCompatible from './providers/openai-compatible.js';
 import * as anthropic from './providers/anthropic.js';
+import * as googleGemini from './providers/google-gemini.js';
 
 const providers = {
   'openai-compatible': openaiCompatible,
-  'anthropic': anthropic
+  'anthropic': anthropic,
+  'google-gemini': googleGemini,
+  'openrouter': openaiCompatible, // Uses same logic as OpenAI
+  'letta': openaiCompatible,     // Assuming OpenAI compatible endpoint
+  'mistral-vibe': openaiCompatible // Assuming OpenAI compatible endpoint
 };
 
 /**

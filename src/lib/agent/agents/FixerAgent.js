@@ -3,6 +3,7 @@ import { buildSystemPrompt } from '../systemPrompt';
 import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
 import { consumeStream } from '../streamProcessor';
+import { makeAgentApiCall } from '../apiClient';
 import { indexer } from '../../indexer';
 
 /**
@@ -261,46 +262,7 @@ IMPORTANT:
    * Make API call
    */
   async makeApiCall(endpoint, apiKey, selectedModel, loopMessages, context, iteration) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'anthropic-beta': 'interleaved-thinking-2025-05-14'
-    };
-    
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    
-    const body = {
-      model: selectedModel.id,
-      messages: loopMessages,
-      tools: TOOLS,
-      tool_choice: 'auto',
-      stream: true,
-      max_tokens: selectedModel.maxOutputTokens
-    };
-    
-    if (selectedModel.thinking) {
-      body.thinking = { type: 'enabled', budget_tokens: 8000 };
-    }
-    
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: context.abortSignal
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API ${response.status}: ${errorText}`);
-    }
-    
-    return await consumeStream(
-      response, 
-      context.onToken, 
-      context.onThinkingToken, 
-      iteration > 0
-    );
+    return await makeAgentApiCall(context, loopMessages, TOOLS, iteration);
   }
 
   /**

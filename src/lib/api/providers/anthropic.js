@@ -85,6 +85,13 @@ export async function streamChat({ messages, settings, onToken, onDone, signal }
     if (error.name === 'AbortError') {
       throw new Error('Request cancelled');
     }
+    
+    // Catch generic fetch failures
+    if (error.message === 'Failed to fetch') {
+      const apiEndpoint = endpoint || 'https://api.anthropic.com/v1';
+      throw new Error(`Failed to connect to Anthropic at ${apiEndpoint}. Please check your internet connection and ensure the endpoint URL is correct.`);
+    }
+    
     throw error;
   }
 }

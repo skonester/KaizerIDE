@@ -236,4 +236,16 @@ export class WorkspaceIndexer {
   async clearStorage() {
     await this.storage.clear();
   }
+
+  /**
+   * Reset the indexer state and clear current index
+   */
+  reset() {
+    this.abort();
+    this.indexStore.clear();
+    this.stateManager.reset();
+    this.stateManager.setWorkspacePath(null);
+    this.notify();
+    console.log('[WorkspaceIndexer] Indexer reset');
+  }
 }

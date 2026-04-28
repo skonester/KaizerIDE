@@ -16,7 +16,9 @@
     "lint": "eslint \"src/**/*.{js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css,json}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\""
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\"",
+    "install-ai-clis": "powershell -ExecutionPolicy Bypass -File ./scripts/install-ai-clis.ps1",
+    "start-ai": "powershell -ExecutionPolicy Bypass -File ./scripts/start-local-ai.ps1"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",
@@ -49,6 +51,7 @@
   "build": {
     "appId": "dev.kaizer.ide",
     "productName": "KaizerIDE",
+    "npmRebuild": false,
     "directories": {
       "output": "release"
     },
@@ -57,12 +60,15 @@
       "electron/**/*",
       "package.json",
       "node_modules/**/*",
+      "scripts/**/*",
       "!src/**/*",
       "!.github/**/*",
       "!*.md",
       "!images/Preview*.png"
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "scripts/**/*"
+    ],
     "compression": "maximum",
     "win": {
       "target": [

@@ -4,6 +4,8 @@ import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { Client } from 'ssh2';
+import { spawn } from 'child_process';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +21,8 @@ let refreshTimeout = null;
 let sshClient = null;
 let sftpClient = null;
 let isRemoteMode = false;
+let aiBridgeProcess = null;
+
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
 
@@ -180,7 +184,7 @@ function createWelcomeWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* http://* https://cdn.jsdelivr.net https://*;"
         ]
       }
     });
@@ -228,7 +232,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' data: https://cdn.jsdelivr.net; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net; " +
           "worker-src 'self' blob: data:; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https://cdn.jsdelivr.net https://*;"
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* http://* https://cdn.jsdelivr.net https://*;"
         ]
       }
     });
@@ -302,14 +306,117 @@ app.whenReady().then(async () => {
       createWelcomeWindow();
     }
   });
+
+  // Start the AI Bridge automatically
+  startAiBridge();
 });
+
 
 app.on('window-all-closed', () => {
   stopWatching();
+  stopAiBridge();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+async function startAiBridge() {
+  if (aiBridgeProcess) return;
+  
+  // Check if Ollama is installed and running
+  try {
+    const { execSync } = require('child_process');
+    console.log('[Main] Checking Ollama status...');
+    
+    // Check if the model exists
+    const models = execSync('ollama list', { encoding: 'utf8' });
+    if (!models.includes('qwen2.5-coder:7b')) {
+      console.log('[Main] Model qwen2.5-coder:7b not found. Pulling now (this may take a few minutes)...');
+      // We don't await this so the UI can still start
+      spawn('ollama', ['pull', 'qwen2.5-coder:7b'], { stdio: 'ignore', detached: true }).unref();
+    }
+
+    // Force kill any existing process on port 20128 to avoid conflicts
+    if (process.platform === 'win32') {
+      try {
+        execSync('powershell -Command "Get-NetTCPConnection -LocalPort 20128 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"');
+        console.log('[Main] Cleared existing port 20128 connections');
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.error('[Main] Ollama check failed. Is it installed and running?', err.message);
+  }
+
+  const appPath = app.getAppPath();
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  let scriptsDir;
+  if (isDevelopment) {
+    scriptsDir = path.join(process.cwd(), 'scripts');
+  } else {
+    // Path for the built .exe in win-unpacked/resources/app.asar.unpacked/scripts
+    scriptsDir = path.join(appPath.replace('app.asar', 'app.asar.unpacked'), 'scripts');
+  }
+    
+  // Use a temporary config path to avoid issues with spaces in the project path
+  const tempConfigPath = path.join(app.getPath('temp'), 'kaizer-litellm-config.yaml');
+  
+  try {
+    // Check if source config exists
+    if (!fs.existsSync(configPath)) {
+      console.error('[Main] CRITICAL: AI Bridge config not found at:', configPath);
+      return;
+    }
+    
+    // Copy config to temp path (space-free)
+    fs.copyFileSync(configPath, tempConfigPath);
+    console.log('[Main] Mirrored AI config to:', tempConfigPath);
+  } catch (err) {
+    console.error('[Main] Failed to mirror config:', err.message);
+  }
+
+  // Use the temp config path for LiteLLM
+  const litellmArgs = [
+    '--config', tempConfigPath,
+    '--port', '20128',
+    '--host', '0.0.0.0'
+  ];
+
+  console.log('[Main] Running: litellm', litellmArgs.join(' '));
+
+  aiBridgeProcess = spawn('litellm', litellmArgs, {
+    shell: false, // Don't use shell to avoid quoting issues
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+  });
+
+
+  aiBridgeProcess.stdout.on('data', (data) => {
+    console.log(`[AI Bridge] ${data.toString().trim()}`);
+  });
+
+  aiBridgeProcess.stderr.on('data', (data) => {
+    console.error(`[AI Bridge Error] ${data.toString().trim()}`);
+  });
+
+  aiBridgeProcess.on('close', (code) => {
+    console.log(`[Main] AI Bridge process exited with code ${code}`);
+    aiBridgeProcess = null;
+  });
+}
+
+function stopAiBridge() {
+  if (aiBridgeProcess) {
+    console.log('[Main] Stopping AI Bridge...');
+    // On Windows, killing a shell-spawned process can be tricky
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', aiBridgeProcess.pid, '/f', '/t']);
+    } else {
+      aiBridgeProcess.kill();
+    }
+    aiBridgeProcess = null;
+  }
+}
+
 
 ipcMain.handle('window-minimize', () => {
   const activeWindow = mainWindow || welcomeWindow;
@@ -428,31 +535,48 @@ ipcMain.handle('run-command', async (event, command, cwd) => {
   }
 });
 
-ipcMain.handle('execute-command', async (event, command, cwd) => {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
+ipcMain.handle('execute-command', (event, command, cwd) => {
+  const { spawn } = require('child_process');
   
-  try {
-    const { stdout, stderr } = await execAsync(command, {
+  return new Promise((resolve) => {
+    // Use -Command for powershell to handle complex strings correctly
+    const child = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-Command', command], {
       cwd: cwd || process.cwd(),
-      shell: 'powershell.exe',
-      timeout: 60000,
-      maxBuffer: 1024 * 1024 * 10
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
     });
-    return { 
-      success: true, 
-      output: stdout || stderr,
-      cwd: cwd || process.cwd()
-    };
-  } catch (error) {
-    return { 
-      success: false, 
-      error: error.message,
-      output: error.stdout || error.stderr || '',
-      cwd: cwd || process.cwd()
-    };
-  }
+
+    let output = '';
+    
+    child.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      // Send real-time updates to the renderer
+      event.sender.send('terminal-output', { chunk });
+    });
+
+    child.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      event.sender.send('terminal-output', { chunk, isError: true });
+    });
+
+    child.on('close', (code) => {
+      resolve({ 
+        success: code === 0, 
+        output,
+        cwd: cwd || process.cwd()
+      });
+    });
+
+    child.on('error', (err) => {
+      resolve({ 
+        success: false, 
+        error: err.message,
+        output: output,
+        cwd: cwd || process.cwd()
+      });
+    });
+  });
 });
 
 ipcMain.handle('search-files', async (event, query, directory) => {

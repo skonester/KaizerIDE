@@ -3,6 +3,7 @@ import { buildSystemPrompt } from '../systemPrompt';
 import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
 import { consumeStream } from '../streamProcessor';
+import { makeAgentApiCall } from '../apiClient';
 import { indexer } from '../../indexer';
 
 /**
@@ -182,7 +183,9 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
    * Process messages to include attached file contents
    */
   async processMessages(context) {
-    return await Promise.all(context.messages.map(async (msg) => {
+    return await Promise.all(context.messages
+      .filter(m => m.role !== 'error')
+      .map(async (msg) => {
       if (msg.role === 'user' && msg.context && msg.context.length > 0) {
         let contextContent = '';
         
@@ -213,6 +216,7 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
         content: msg.content || ''
       };
     }));
+
   }
 
   /**
@@ -269,48 +273,7 @@ You are the primary agent for getting work done. Be proactive, thorough, and rel
    * Make API call with streaming
    */
   async makeApiCall(endpoint, apiKey, selectedModel, loopMessages, context, iteration) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'anthropic-beta': 'interleaved-thinking-2025-05-14'
-    };
-    
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    
-    const body = {
-      model: selectedModel.id,
-      messages: loopMessages,
-      tools: TOOLS,
-      tool_choice: 'auto',
-      stream: true,
-      max_tokens: selectedModel.maxOutputTokens
-    };
-    
-    // Enable thinking if model supports it
-    if (selectedModel.thinking) {
-      body.thinking = { type: 'enabled', budget_tokens: 8000 };
-    }
-    
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: context.abortSignal
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API ${response.status}: ${errorText}`);
-    }
-    
-    // Consume stream and get full message
-    return await consumeStream(
-      response, 
-      context.onToken, 
-      context.onThinkingToken, 
-      iteration > 0 // Don't start new thinking block on subsequent iterations
-    );
+    return await makeAgentApiCall(context, loopMessages, TOOLS, iteration);
   }
 
   /**

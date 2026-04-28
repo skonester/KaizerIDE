@@ -150,7 +150,7 @@ const MARKDOWN_CODE_RENDERER_STATIC = ({ node, className, children, ...props }) 
   return <StaticCodeBlock language={language} code={raw} {...props} />;
 };
 
-function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile }) {
+function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile, onSelectModel }) {
   const [messages, setMessages] = useState([]);
   const [streamingMsg, setStreamingMsg] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -1550,12 +1550,14 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onChangeInput={(e) => setInput(e.target.value)}
         onAttachContextType={handleAttachContextType}
         onOpenSettings={() => setShowSettingsModal(true)}
+        onSelectModel={onSelectModel}
       />
 
       {/* Settings Modal */}
       {showSettingsModal && (
         <AddModelModal
           endpoint={settings.endpoint}
+          onAdd={onAddModel}
           onClose={() => setShowSettingsModal(false)}
         />
       )}

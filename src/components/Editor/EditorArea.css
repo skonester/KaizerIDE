@@ -1075,3 +1075,35 @@
 .monaco-editor .marker-widget .descriptioncontainer {
   color: var(--text-1) !important;
 }
+
+/* Run button specific styling */
+.plan-action-btn.run-btn {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+  border: 1px solid #166534;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.plan-action-btn.run-btn:hover {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+  border-color: #15803d;
+}
+
+.plan-action-btn.run-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+}
+
+.plan-action-btn.run-btn.service-btn {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  border-color: #0e7490;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
+}
+
+.plan-action-btn.run-btn.service-btn:hover {
+  background: linear-gradient(135deg, #22d3ee, #06b6d4);
+  box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
+}

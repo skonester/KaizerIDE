@@ -27,13 +27,43 @@ const DEFAULT_SETTINGS = {
   provider: "openai-compatible",
   endpoint: "http://localhost:20128/v1",
   apiKey: "",
-  selectedModel: { id: "kr/claude-sonnet-4.5", name: "Claude Sonnet 4.5", maxOutputTokens: 16000 },
+  selectedModel: { id: 'gemini/gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Fastest)', maxOutputTokens: 16000 },
   models: [
-    { id: "kr/claude-sonnet-4.5", name: "Claude Sonnet 4.5", maxOutputTokens: 16000 },
-    { id: "kr/claude-haiku-4.5", name: "Claude Haiku 4.5", maxOutputTokens: 16000 },
-    { id: "cx/gpt-5.3-codex", name: "GPT-5.3 Codex", maxOutputTokens: 16000 },
-    { id: "qw/qwen3-coder-plus", name: "Qwen3 Coder+", maxOutputTokens: 16000 },
-    { id: "gemini/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash", maxOutputTokens: 16000 }
+    // Scripted Models
+    { id: 'qwen/qwen-2.5-coder-32b', name: 'Qwen 2.5 Coder (Script)', maxOutputTokens: 16000 },
+    { id: 'opencode/opencode-ai', name: 'OpenCode AI (Script)', maxOutputTokens: 16000 },
+    { id: 'codex/codex-cli', name: 'Codex CLI (Script)', maxOutputTokens: 16000 },
+    { id: 'letta/letta-local', name: 'Letta (Local)', maxOutputTokens: 16000 },
+    { id: 'mistral/mistral-vibe', name: 'Mistral Vibe', maxOutputTokens: 16000 },
+    
+    // Gemini Models
+    { id: "gemini/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash", maxOutputTokens: 16000 },
+    { id: "gemini/gemini-1.5-pro", name: "Gemini 1.5 Pro", maxOutputTokens: 16000 },
+    { id: "gemini/gemini-1.5-flash", name: "Gemini 1.5 Flash", maxOutputTokens: 16000 },
+    
+    // Anthropic Models
+    { id: "anthropic/claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet", maxOutputTokens: 16000 },
+    { id: "anthropic/claude-3-opus-20240229", name: "Claude 3 Opus", maxOutputTokens: 16000 },
+    { id: "anthropic/claude-3-haiku-20240307", name: "Claude 3 Haiku", maxOutputTokens: 16000 },
+    
+    // OpenAI Models
+    { id: "openai/gpt-4o", name: "GPT-4o", maxOutputTokens: 16000 },
+    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", maxOutputTokens: 16000 },
+    { id: "openai/o1-preview", name: "OpenAI o1 Preview", maxOutputTokens: 16000 },
+    
+    // Qwen Models
+    { id: "qw/qwen-2.5-coder-32b-instruct", name: "Qwen 2.5 Coder 32B", maxOutputTokens: 16000 },
+    { id: "qw/qwen-2.5-72b-instruct", name: "Qwen 2.5 72B", maxOutputTokens: 16000 },
+    
+    // Mistral Models
+    { id: "mistral/mistral-large-latest", name: "Mistral Large", maxOutputTokens: 16000 },
+    { id: "mistral/codestral-latest", name: "Codestral", maxOutputTokens: 16000 },
+    
+    // Specialized & Local Models
+    { id: "opencode/opencode-2.1", name: "OpenCode 2.1", maxOutputTokens: 16000 },
+    { id: "letta/letta-memory-1", name: "Letta Memory", maxOutputTokens: 16000 },
+    { id: "ds/deepseek-chat-v3", name: "DeepSeek V3", maxOutputTokens: 16000 },
+    { id: "openrouter/auto", name: "OpenRouter Auto", maxOutputTokens: 16000 }
   ],
   systemPrompts: {}
 };
@@ -46,7 +76,20 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('kaizer-settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    if (!saved) return DEFAULT_SETTINGS;
+    
+    const parsed = JSON.parse(saved);
+    // Merge default models into saved models, avoiding duplicates by ID
+    const savedModelIds = new Set(parsed.models.map(m => m.id));
+    const newModels = [...parsed.models];
+    
+    DEFAULT_SETTINGS.models.forEach(m => {
+      if (!savedModelIds.has(m.id)) {
+        newModels.push(m);
+      }
+    });
+    
+    return { ...parsed, models: newModels };
   });
   const [errorMessage, setErrorMessage] = useState(null);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
@@ -193,6 +236,14 @@ function App() {
       if (result.success && result.workspacePath) {
         console.log('[App] Setting workspacePath to:', result.workspacePath);
         setWorkspacePath(result.workspacePath);
+        
+        // Auto-open AI installation script if it exists in the workspace
+        const installScriptPath = `${result.workspacePath}\\scripts\\install-ai-clis.ps1`;
+        window.electron.getFileInfo(installScriptPath).then(info => {
+          if (info && !info.isDirectory && info.success !== false) {
+            handleFileOpen(installScriptPath);
+          }
+        });
       } else {
         console.log('[App] No workspace path found - you need to open a folder via File → Open Folder');
       }
@@ -560,6 +611,7 @@ function App() {
     window.addEventListener('kaizer:clear-diff', handleClearDiff);
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
     window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
+    window.addEventListener('kaizer:terminal-execute', handleNewTerminal);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
@@ -640,6 +692,68 @@ function App() {
     setShowSettings(false);
   };
 
+  const handleModelSelect = (model) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, selectedModel: model };
+      
+      // Auto-switch provider if the model ID matches a specific provider
+      if (model.id.startsWith('gemini/')) {
+        newSettings.provider = 'google-gemini';
+        newSettings.endpoint = 'https://generativelanguage.googleapis.com/v1beta';
+      } else if (model.id.startsWith('kr/') || model.id.startsWith('anthropic/')) {
+        newSettings.provider = 'anthropic';
+        newSettings.endpoint = 'https://api.anthropic.com/v1';
+      } else if (model.id.startsWith('openrouter/')) {
+        newSettings.provider = 'openrouter';
+        newSettings.endpoint = 'https://openrouter.ai/api/v1';
+      } else if (model.id.startsWith('letta/')) {
+        newSettings.provider = 'letta';
+        newSettings.endpoint = 'http://localhost:8000/v1';
+      } else if (model.id.startsWith('mistral/')) {
+        newSettings.provider = 'mistral-vibe';
+        newSettings.endpoint = 'https://api.mistral.ai/v1';
+      } else if (model.id.startsWith('openai/') || model.id.startsWith('gpt-')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'https://api.openai.com/v1';
+      } else if (model.id.startsWith('qw/') || model.id.startsWith('qwen/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:20128/v1';
+      } else if (model.id.startsWith('opencode/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:20128/v1';
+      } else if (model.id.startsWith('codex/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:20128/v1';
+      }
+      
+      localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
+      return newSettings;
+    });
+  };
+
+  // Validate settings on load to ensure endpoint consistency
+  useEffect(() => {
+    if (settings.selectedModel) {
+      const model = settings.selectedModel;
+      // If endpoint is still the local one but model is Gemini/Claude, fix it.
+      if (settings.endpoint === "http://localhost:20128/v1") {
+        if (model.id.startsWith('gemini/')) {
+          handleModelSelect(model);
+        } else if (model.id.startsWith('kr/') || model.id.startsWith('anthropic/')) {
+          handleModelSelect(model);
+        }
+      }
+    }
+  }, []);
+
+  const handleAddModel = (newModel) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, models: [...prev.models, newModel], selectedModel: newModel };
+      localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
+      return newSettings;
+    });
+  };
+
   const handleMenuAction = async (action) => {
     switch (action) {
       case 'new-file':
@@ -692,6 +806,7 @@ function App() {
         setWorkspacePath(null);
         setTabs([]);
         setActiveTabPath(null);
+        indexer.reset();
         break;
       
       case 'toggle-sidebar':
@@ -768,6 +883,8 @@ function App() {
             activeFileContent={tabs.find(tab => tab.path === activeTabPath)?.content}
             settings={settings}
             onOpenFile={handleFileOpen}
+            onSelectModel={handleModelSelect}
+            onAddModel={handleAddModel}
           />
         </div>
       </div>

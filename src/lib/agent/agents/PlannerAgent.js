@@ -3,6 +3,7 @@ import { buildSystemPrompt } from '../systemPrompt';
 import { TOOLS } from '../tools';
 import { executeTool } from '../toolExecutor';
 import { consumeStream } from '../streamProcessor';
+import { makeAgentApiCall } from '../apiClient';
 import { indexer } from '../../indexer';
 
 /**
@@ -792,58 +793,26 @@ Analyzing your request and creating a detailed plan...
    * Make API call
    */
   async makeApiCall(endpoint, apiKey, selectedModel, loopMessages, context, iteration) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'anthropic-beta': 'interleaved-thinking-2025-05-14'
-    };
-    
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    
     // Filter tools to only read-only ones
     const allowedTools = TOOLS.filter(tool => 
       this.canUseTool(tool.function.name)
     );
-    
-    const body = {
-      model: selectedModel.id,
-      messages: loopMessages,
-      tools: allowedTools,
-      tool_choice: 'auto',
-      stream: true,
-      max_tokens: selectedModel.maxOutputTokens
-    };
-    
-    if (selectedModel.thinking) {
-      body.thinking = { type: 'enabled', budget_tokens: 8000 };
-    }
-    
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: context.abortSignal
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API ${response.status}: ${errorText}`);
-    }
-    
-    return await consumeStream(
-      response, 
-      async (token) => {
+
+    // Override callbacks to handle plan accumulation
+    const originalOnToken = context.onToken;
+    const originalOnThinkingToken = context.onThinkingToken;
+
+    const wrappedContext = {
+      ...context,
+      onToken: async (token) => {
         context.accumulatedPlan.value += token;
         
         // Update plan file in real-time with throttling (every 500ms)
         const now = Date.now();
         if (context.planFilePath && window.electron?.writeFile && (now - context.lastUpdateTime > 500)) {
           context.lastUpdateTime = now;
-          
           await window.electron.writeFile(context.planFilePath, context.accumulatedPlan.value);
           
-          // Dispatch event to update preview tab in real-time
           window.dispatchEvent(new CustomEvent('kaizer:file-written', {
             detail: {
               path: context.planFilePath,
@@ -853,13 +822,11 @@ Analyzing your request and creating a detailed plan...
             }
           }));
         }
-        
-        // Don't send tokens to chat - plan is only in the file
-        // if (context.onToken) context.onToken(token);
-      }, 
-      context.onThinkingToken, 
-      iteration > 0
-    );
+      },
+      onThinkingToken: originalOnThinkingToken
+    };
+
+    return await makeAgentApiCall(wrappedContext, loopMessages, allowedTools, iteration);
   }
 
   /**

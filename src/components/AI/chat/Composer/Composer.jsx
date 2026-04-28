@@ -49,6 +49,7 @@ const Composer = forwardRef(function Composer(
     onChangeInput,
     onAttachContextType,
     onOpenSettings,
+    onSelectModel,
   },
   textareaRef
 ) {
@@ -241,6 +242,7 @@ const Composer = forwardRef(function Composer(
                 onOpenChange={setPopup(POPUP_MODEL)}
                 settings={settings}
                 onAddModel={onOpenSettings}
+                onSelect={onSelectModel}
               />
             </div>
 

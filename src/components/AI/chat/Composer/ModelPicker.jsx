@@ -7,7 +7,7 @@ import { usePopoverMenu } from '../../../../lib/hooks/usePopoverMenu';
  * Persists choice by mutating the passed `settings` object (legacy behavior;
  * real state should move into a settings store later).
  */
-function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
+function ModelPicker({ open, onOpenChange, settings, onAddModel, onSelect }) {
   const itemCount = settings.models.length + 1;
   const {
     refs,
@@ -57,13 +57,13 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel }) {
                   className={`model-option ${selected ? 'active' : ''}`}
                   {...getItemProps({
                     onClick: () => {
-                      settings.selectedModel = model;
+                      onSelect(model);
                       onOpenChange(false);
                     },
                     onKeyDown: (e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        settings.selectedModel = model;
+                        onSelect(model);
                         onOpenChange(false);
                       }
                     },

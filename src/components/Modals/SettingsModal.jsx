@@ -155,8 +155,16 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, provider: e.target.value }))}
                   className="model-select"
                 >
-                  <option value="openai-compatible">OpenAI Compatible</option>
+                  <option value="openai-compatible">OpenAI Compatible (Local/Proxy)</option>
+                  <option value="openai">OpenAI (Native)</option>
                   <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="google-gemini">Google Gemini</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="letta">Letta (Memory-Augmented)</option>
+                  <option value="mistral-vibe">Mistral Vibe</option>
+                  <option value="qwen">Qwen (Native/Alibaba)</option>
+                  <option value="opencode">OpenCode</option>
                 </select>
                 <span className="setting-description">Choose your AI provider</span>
               </div>
@@ -171,13 +179,27 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                   placeholder={
                     localSettings.provider === 'anthropic' 
                       ? 'https://api.anthropic.com/v1' 
-                      : 'http://localhost:20128/v1'
+                      : localSettings.provider === 'google-gemini'
+                        ? 'https://generativelanguage.googleapis.com/v1beta'
+                        : localSettings.provider === 'openrouter'
+                          ? 'https://openrouter.ai/api/v1'
+                          : localSettings.provider === 'openai'
+                            ? 'https://api.openai.com/v1'
+                            : localSettings.provider === 'deepseek'
+                              ? 'https://api.deepseek.com/v1'
+                              : localSettings.provider === 'mistral-vibe'
+                                ? 'https://api.mistral.ai/v1'
+                                : 'http://localhost:20128/v1'
                   }
                 />
                 <span className="setting-description">
                   {localSettings.provider === 'anthropic' 
                     ? 'Anthropic API endpoint (leave empty for default)' 
-                    : 'API endpoint for AI chat functionality'}
+                    : localSettings.provider === 'google-gemini'
+                      ? 'Google AI Studio / Gemini endpoint'
+                      : localSettings.provider === 'openrouter'
+                        ? 'OpenRouter API endpoint'
+                        : 'API endpoint for AI chat functionality'}
                 </span>
               </div>
 
@@ -189,7 +211,11 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                     className="api-key-input"
                     value={localSettings.apiKey}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, apiKey: e.target.value }))}
-                    placeholder={localSettings.provider === 'anthropic' ? 'Required for Anthropic' : 'Optional'}
+                    placeholder={
+                      localSettings.provider === 'anthropic' || localSettings.provider === 'google-gemini' || localSettings.provider === 'openrouter'
+                        ? 'Required' 
+                        : 'Optional'
+                    }
                   />
                   <button
                     className="toggle-visibility"

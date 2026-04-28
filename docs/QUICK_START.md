@@ -53,6 +53,14 @@ Get KaizerIDE installed, configured, and ready for your first AI-assisted coding
 
 KaizerIDE supports OpenAI-compatible endpoints, including hosted providers and local model servers.
 
+## Local AI Setup (Ollama)
+1. Ensure **[Ollama](https://ollama.com/)** is installed and running on your machine.
+2. Run `npm run install-ai-clis` to setup the bridge and required tools.
+3. Run `npm run start-ai` to start the local AI bridge on port 20128.
+4. Set your Endpoint URL in Settings to `http://localhost:20128/v1`.
+
+This setup is pre-configured to use **Qwen 2.5 Coder** via Ollama with GPU acceleration enabled.
+
 ---
 
 ## Next reads

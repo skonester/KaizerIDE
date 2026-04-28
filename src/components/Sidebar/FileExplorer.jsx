@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './FileExplorer.css';
 
 const FILE_ICONS = {
@@ -626,9 +626,11 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
       if (event.detail) {
         console.log('[FileExplorer] Received tree-refresh event');
         setTree(event.detail);
-      } else if (workspacePath) {
+      } else if (workspacePathProp) {
         console.log('[FileExplorer] Reloading tree from workspace path');
-        loadTree(workspacePath);
+        loadTree(workspacePathProp);
+      } else {
+        setTree(null);
       }
     };
 
@@ -667,10 +669,14 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
 
   // Sync with prop changes
   useEffect(() => {
-    if (workspacePathProp && workspacePathProp !== workspacePath) {
+    if (workspacePathProp !== workspacePath) {
       console.log('[FileExplorer] Syncing workspacePath from prop:', workspacePathProp);
       setWorkspacePath(workspacePathProp);
-      loadTree(workspacePathProp);
+      if (workspacePathProp) {
+        loadTree(workspacePathProp);
+      } else {
+        setTree(null);
+      }
     }
   }, [workspacePathProp]);
 

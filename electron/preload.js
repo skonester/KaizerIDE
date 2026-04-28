@@ -35,6 +35,13 @@ contextBridge.exposeInMainWorld('electron', {
     return () => ipcRenderer.removeListener('open-path', listener);
   },
   
+  // Listen for terminal output updates
+  onTerminalOutput: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('terminal-output', listener);
+    return () => ipcRenderer.removeListener('terminal-output', listener);
+  },
+  
   // Listen for file system changes
   onFileSystemChanged: (callback) => {
     const listener = (event, data) => callback(data);

@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from '../../../Common/Icon';
 
 /**
- * AddModelModal - simple form placeholder for adding a model.
- * Extracted verbatim from ChatPanel. Behavior (alert stub) preserved
- * until the real model-management flow is wired.
+ * AddModelModal - real form for adding a model.
  */
-function AddModelModal({ endpoint, onClose }) {
+function AddModelModal({ endpoint, onAdd, onClose }) {
+  const [name, setName] = useState('');
+  const [id, setId] = useState('');
+  const [localEndpoint, setLocalEndpoint] = useState(endpoint || '');
+  const [apiKey, setApiKey] = useState('');
+  const [maxTokens, setMaxTokens] = useState(16000);
+
+  const handleSubmit = () => {
+    if (!name || !id) {
+      alert('Please enter both Name and ID');
+      return;
+    }
+    
+    onAdd({
+      id: id,
+      name: name,
+      maxOutputTokens: parseInt(maxTokens) || 16000
+    });
+    onClose();
+  };
+
   return (
     <div className="settings-modal-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -26,7 +44,9 @@ function AddModelModal({ endpoint, onClose }) {
             <input
               type="text"
               className="settings-input"
-              placeholder="e.g., GPT-4, Claude 4.5 Sonnet"
+              placeholder="e.g., Claude 3.5 Sonnet"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="settings-section">
@@ -34,33 +54,20 @@ function AddModelModal({ endpoint, onClose }) {
             <input
               type="text"
               className="settings-input"
-              placeholder="e.g., gpt-4, claude-3-5-sonnet-20241022"
+              placeholder="e.g., anthropic/claude-3-5-sonnet-20241022"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
             />
-          </div>
-          <div className="settings-section">
-            <label className="settings-label">API Endpoint</label>
-            <input
-              type="text"
-              className="settings-input"
-              placeholder="https://api.openai.com/v1"
-              defaultValue={endpoint}
-            />
-          </div>
-          <div className="settings-section">
-            <label className="settings-label">API Key</label>
-            <input
-              type="password"
-              className="settings-input"
-              placeholder="sk-..."
-            />
+            <span className="setting-description">Prefix with 'gemini/' or 'anthropic/' for native providers.</span>
           </div>
           <div className="settings-section">
             <label className="settings-label">Max Output Tokens</label>
             <input
               type="number"
               className="settings-input"
-              placeholder="4096"
-              defaultValue="4096"
+              placeholder="16000"
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(e.target.value)}
             />
           </div>
         </div>
@@ -70,11 +77,7 @@ function AddModelModal({ endpoint, onClose }) {
           </button>
           <button
             className="settings-btn-primary"
-            onClick={() => {
-              // eslint-disable-next-line no-alert
-              alert('Model add functionality coming soon!');
-              onClose();
-            }}
+            onClick={handleSubmit}
           >
             Add Model
           </button>
