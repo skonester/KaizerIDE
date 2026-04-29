@@ -677,8 +677,12 @@ export default function FileExplorer({ workspacePath: workspacePathProp, onFileO
       } else {
         setTree(null);
       }
+    } else if (workspacePathProp && !tree && !loading) {
+      // If we have a path but no tree (e.g. on mount), load it
+      console.log('[FileExplorer] Initial load of tree on mount');
+      loadTree(workspacePathProp);
     }
-  }, [workspacePathProp]);
+  }, [workspacePathProp, tree, loading]);
 
   // Sync remoteMode with prop
   useEffect(() => {

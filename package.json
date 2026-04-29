@@ -59,17 +59,13 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "node_modules/**/*",
       "scripts/**/*",
       "!src/**/*",
       "!.github/**/*",
       "!*.md",
       "!images/Preview*.png"
     ],
-    "asarUnpack": [
-      "scripts/**/*"
-    ],
-    "compression": "maximum",
+    "compression": "normal",
     "win": {
       "target": [
         {

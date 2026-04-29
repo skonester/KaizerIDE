@@ -2,6 +2,12 @@
 Write-Host "Starting Local AI Bridge on port 20128..." -ForegroundColor Cyan
 Write-Host "Ensure Ollama is running in your system tray." -ForegroundColor Gray
 
+# GPU Optimizations for Ollama
+$env:OLLAMA_FLASH_ATTENTION="1"
+$env:OLLAMA_KV_CACHE_TYPE="f16"
+$env:CUDA_VISIBLE_DEVICES="0"
+$env:OLLAMA_NUM_PARALLEL=4
+
 if (!(Get-Command litellm -ErrorAction SilentlyContinue)) {
     Write-Host "Error: LiteLLM not found. Run 'npm run install-ai-clis' first." -ForegroundColor Red
     pause

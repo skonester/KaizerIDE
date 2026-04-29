@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -12,6 +12,15 @@ const __dirname = path.dirname(__filename);
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Hardware acceleration and GPU optimizations
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-native-gpu-memory-buffers');
+app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+app.commandLine.appendSwitch('enable-gpu-compositing');
+
 let mainWindow;
 let welcomeWindow;
 let openPath = null;
@@ -21,7 +30,7 @@ let refreshTimeout = null;
 let sshClient = null;
 let sftpClient = null;
 let isRemoteMode = false;
-let aiBridgeProcess = null;
+
 
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'release', '__pycache__', '.vscode', '.idea']);
@@ -102,7 +111,11 @@ async function buildFileTree(dirPath, depth = 0, maxDepth = 7, ignoredSet = null
     const stats = await fs.promises.stat(dirPath);
 
     if (stats.isDirectory()) {
-      if (ignoredSet.has(name)) return null;
+      if (ignoredSet.has(name)) {
+        console.log(`[FileTree] Ignoring directory: ${name}`);
+        return null;
+      }
+      console.log(`[FileTree] Building tree for directory: ${dirPath}`);
 
       let entries;
       try {
@@ -191,14 +204,25 @@ function createWelcomeWindow() {
   });
 
   if (isDev) {
+    console.log('[Main] Loading Welcome window URL: http://localhost:5174#welcome');
     welcomeWindow.loadURL('http://localhost:5174#welcome');
     welcomeWindow.webContents.openDevTools();
   } else {
-    welcomeWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'welcome' });
+    const welcomePath = path.join(__dirname, '../dist/index.html');
+    console.log('[Main] Loading Welcome window file:', welcomePath);
+    welcomeWindow.loadFile(welcomePath, { hash: 'welcome' });
   }
 
   welcomeWindow.on('closed', () => {
     welcomeWindow = null;
+  });
+
+  // Open external links in default browser
+  welcomeWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
   });
 
   return welcomeWindow;
@@ -239,10 +263,13 @@ function createWindow() {
   });
 
   if (isDev) {
+    console.log('[Main] Loading Main window URL: http://localhost:5174');
     mainWindow.loadURL('http://localhost:5174');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('[Main] Loading Main window file:', indexPath);
+    mainWindow.loadFile(indexPath);
   }
 
   // After page loads, send the open path to renderer
@@ -254,6 +281,14 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Open external links in default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
   });
 
   return mainWindow;
@@ -307,115 +342,17 @@ app.whenReady().then(async () => {
     }
   });
 
-  // Start the AI Bridge automatically
-  startAiBridge();
 });
 
 
 app.on('window-all-closed', () => {
   stopWatching();
-  stopAiBridge();
+
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-async function startAiBridge() {
-  if (aiBridgeProcess) return;
-  
-  // Check if Ollama is installed and running
-  try {
-    const { execSync } = require('child_process');
-    console.log('[Main] Checking Ollama status...');
-    
-    // Check if the model exists
-    const models = execSync('ollama list', { encoding: 'utf8' });
-    if (!models.includes('qwen2.5-coder:7b')) {
-      console.log('[Main] Model qwen2.5-coder:7b not found. Pulling now (this may take a few minutes)...');
-      // We don't await this so the UI can still start
-      spawn('ollama', ['pull', 'qwen2.5-coder:7b'], { stdio: 'ignore', detached: true }).unref();
-    }
-
-    // Force kill any existing process on port 20128 to avoid conflicts
-    if (process.platform === 'win32') {
-      try {
-        execSync('powershell -Command "Get-NetTCPConnection -LocalPort 20128 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"');
-        console.log('[Main] Cleared existing port 20128 connections');
-      } catch (e) {}
-    }
-  } catch (err) {
-    console.error('[Main] Ollama check failed. Is it installed and running?', err.message);
-  }
-
-  const appPath = app.getAppPath();
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  let scriptsDir;
-  if (isDevelopment) {
-    scriptsDir = path.join(process.cwd(), 'scripts');
-  } else {
-    // Path for the built .exe in win-unpacked/resources/app.asar.unpacked/scripts
-    scriptsDir = path.join(appPath.replace('app.asar', 'app.asar.unpacked'), 'scripts');
-  }
-    
-  // Use a temporary config path to avoid issues with spaces in the project path
-  const tempConfigPath = path.join(app.getPath('temp'), 'kaizer-litellm-config.yaml');
-  
-  try {
-    // Check if source config exists
-    if (!fs.existsSync(configPath)) {
-      console.error('[Main] CRITICAL: AI Bridge config not found at:', configPath);
-      return;
-    }
-    
-    // Copy config to temp path (space-free)
-    fs.copyFileSync(configPath, tempConfigPath);
-    console.log('[Main] Mirrored AI config to:', tempConfigPath);
-  } catch (err) {
-    console.error('[Main] Failed to mirror config:', err.message);
-  }
-
-  // Use the temp config path for LiteLLM
-  const litellmArgs = [
-    '--config', tempConfigPath,
-    '--port', '20128',
-    '--host', '0.0.0.0'
-  ];
-
-  console.log('[Main] Running: litellm', litellmArgs.join(' '));
-
-  aiBridgeProcess = spawn('litellm', litellmArgs, {
-    shell: false, // Don't use shell to avoid quoting issues
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-  });
-
-
-  aiBridgeProcess.stdout.on('data', (data) => {
-    console.log(`[AI Bridge] ${data.toString().trim()}`);
-  });
-
-  aiBridgeProcess.stderr.on('data', (data) => {
-    console.error(`[AI Bridge Error] ${data.toString().trim()}`);
-  });
-
-  aiBridgeProcess.on('close', (code) => {
-    console.log(`[Main] AI Bridge process exited with code ${code}`);
-    aiBridgeProcess = null;
-  });
-}
-
-function stopAiBridge() {
-  if (aiBridgeProcess) {
-    console.log('[Main] Stopping AI Bridge...');
-    // On Windows, killing a shell-spawned process can be tricky
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', aiBridgeProcess.pid, '/f', '/t']);
-    } else {
-      aiBridgeProcess.kill();
-    }
-    aiBridgeProcess = null;
-  }
-}
 
 
 ipcMain.handle('window-minimize', () => {
@@ -462,33 +399,53 @@ ipcMain.handle('open-folder', async () => {
 
 ipcMain.handle('get-file-tree', async (event, dirPath) => {
   try {
+    console.log(`[IPC] get-file-tree: ${dirPath}`);
     const tree = await buildFileTree(dirPath);
+
+    if (!tree) {
+      console.warn(`[IPC] get-file-tree: buildFileTree returned null for ${dirPath}`);
+      return { success: false, error: 'Could not build file tree (possibly ignored or too deep)' };
+    }
 
     // Start watching this directory
     startWatching(dirPath);
 
+    console.log(`[IPC] get-file-tree: Success, root name is ${tree.name}`);
     return { success: true, tree };
   } catch (error) {
+    console.error(`[IPC] get-file-tree error: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
+    console.log(`[IPC] read-file: ${filePath}`);
+    if (!fs.existsSync(filePath)) {
+      console.warn(`[IPC] File not found: ${filePath}`);
+      return { success: false, error: 'File not found' };
+    }
     const content = fs.readFileSync(filePath, 'utf-8');
     return { success: true, content };
   } catch (error) {
+    console.error(`[IPC] read-file error: ${error.message}`, { path: filePath });
     return { success: false, error: error.message };
   }
 });
 
 ipcMain.handle('write-file', async (event, filePath, content) => {
   try {
+    console.log(`[IPC] write-file: ${filePath} (${content?.length || 0} bytes)`);
     const dir = path.dirname(filePath);
-    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(dir)) {
+      console.log(`[IPC] creating directory: ${dir}`);
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(filePath, content, 'utf-8');
+    console.log(`[IPC] write-file success: ${filePath}`);
     return { success: true };
   } catch (error) {
+    console.error(`[IPC] write-file error: ${error.message}`, { path: filePath });
     return { success: false, error: error.message };
   }
 });
@@ -1471,6 +1428,30 @@ ipcMain.handle('open-workspace-from-welcome-with-ssh', async () => {
         mainWindow.webContents.send('open-ssh-modal');
       });
     }
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+// Show welcome screen (switch from main window)
+ipcMain.handle('show-welcome', async () => {
+  try {
+    // Clear current workspace path so it doesn't auto-load next time
+    const userDataPath = app.getPath('userData');
+    const configPath = path.join(userDataPath, 'workspace-config.json');
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
+    }
+
+    // Close main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close();
+      mainWindow = null;
+    }
+    
+    // Create welcome window
+    createWelcomeWindow();
     
     return { success: true };
   } catch (error) {

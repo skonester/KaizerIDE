@@ -24,7 +24,7 @@ function ModelPicker({ open, onOpenChange, settings, onAddModel, onSelect }) {
   });
 
   const name = settings.selectedModel.name;
-  const label = name.length > 16 ? `${name.slice(0, 16)}…` : name;
+  const label = name.length > 24 ? `${name.slice(0, 24)}…` : name;
 
   return (
     <>

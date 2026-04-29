@@ -111,6 +111,22 @@ function StreamingCodeBlock({ content, language, isStreaming }) {
         >
           {displayedContent || ' '}
         </SyntaxHighlighter>
+        {!isStreaming && (
+          <button
+            className="code-apply-btn"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('kaizer:apply-code-block', {
+                detail: { content, language }
+              }));
+            }}
+            title="Apply changes"
+            aria-label="Apply changes"
+            type="button"
+          >
+            <Icon name="Check" size={12} />
+            <span>Apply</span>
+          </button>
+        )}
         {isStreaming && <span className="streaming-caret" aria-hidden="true" />}
       </div>
     </div>

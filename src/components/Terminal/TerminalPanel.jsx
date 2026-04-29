@@ -21,6 +21,13 @@ function TerminalPanel({ workspacePath }) {
     }
   }, [terminals, activeTerminalId]);
 
+  // Create initial terminal if none exists
+  useEffect(() => {
+    if (terminals.length === 0) {
+      createNewTerminal('powershell');
+    }
+  }, []);
+
   useEffect(() => {
     // Listen for new terminal event
     const handleNewTerminal = () => {

@@ -227,8 +227,13 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                 <span className="setting-description">
                   {localSettings.provider === 'anthropic' 
                     ? 'Your Anthropic API key (required)' 
-                    : 'Optional API key for authentication'}
+                    : localSettings.provider === 'google-gemini'
+                      ? 'Your Google AI Studio key (required)'
+                      : 'Optional API key for authentication'}
                 </span>
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-3)', fontStyle: 'italic' }}>
+                  Tip: Selecting a model from the chat panel will automatically configure the endpoint for you.
+                </div>
               </div>
 
               <button className="save-btn" onClick={handleSaveGeneral}>

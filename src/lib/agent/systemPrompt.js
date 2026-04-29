@@ -91,6 +91,10 @@ Do not attempt to use file tools without a workspace.
 AVAILABLE TOOLS:
 • read_file(path) — Read any file in the workspace
 • write_file(path, content) — Create or overwrite files
+• create_file(path) — Create a new empty file
+• create_folder(path) — Create a new folder
+• delete_file(path) — Delete a file or folder
+• rename_file(oldPath, newPath) — Rename or move a file/folder
 • list_directory(path) — Explore project structure (use sparingly, prefer search_index)
 • search_index(query, limit?) — Search indexed files by name/path/symbols/content. Returns file metadata AND a 5-line code snippet around each hit — often enough to answer without read_file.
 • grep_index(query, limit?) — Case-insensitive line-level search across indexed previews. Returns path + line number + matching line, grouped by file. Great for finding usages/definitions fast.

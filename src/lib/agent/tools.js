@@ -31,7 +31,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'write_file',
-      description: 'Write content to a file',
+      description: 'Write content to a file. Can be used to create new files or overwrite existing ones. Parent directories will be created automatically if they don\'t exist.',
       parameters: {
         type: 'object',
         properties: {
@@ -45,6 +45,23 @@ export const TOOLS = [
           }
         },
         required: ['path', 'content']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_file',
+      description: 'Create a new empty file in the workspace. Use write_file instead if you already have the content.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file to create (relative to workspace root)'
+          }
+        },
+        required: ['path']
       }
     }
   },
@@ -230,6 +247,72 @@ export const TOOLS = [
           }
         },
         required: ['symbol']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_folder',
+      description: 'Create a new folder in the workspace',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the folder to create (relative to workspace root)'
+          }
+        },
+        required: ['path']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_file',
+      description: 'Delete a file or folder from the workspace',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Path to the file or folder to delete (relative to workspace root)'
+          }
+        },
+        required: ['path']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rename_file',
+      description: 'Rename or move a file or folder in the workspace',
+      parameters: {
+        type: 'object',
+        properties: {
+          oldPath: {
+            type: 'string',
+            description: 'Current path (relative to workspace root)'
+          },
+          newPath: {
+            type: 'string',
+            description: 'New path (relative to workspace root)'
+          }
+        },
+        required: ['oldPath', 'newPath']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_index_summary',
+      description: 'Get a comprehensive summary of the workspace index, including project structure, file types, symbol counts, and key files.',
+      parameters: {
+        type: 'object',
+        properties: {}
       }
     }
   }

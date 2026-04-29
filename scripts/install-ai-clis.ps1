@@ -35,11 +35,20 @@ if (!(Get-Command ollama -ErrorAction SilentlyContinue)) {
     Write-Success "Ollama is already installed."
 }
 
-Write-Info "Ensuring Qwen 2.5 Coder model is available..."
+Write-Info "Ensuring core coding models are available..."
 ollama pull qwen2.5-coder:7b
-if ($LASTEXITCODE -eq 0) {
-    Write-Success "Qwen 2.5 Coder (7B) is ready."
-}
+
+Write-Info "Creating model aliases for Droid and Pi with GPU optimization..."
+$modelfilePath = Join-Path $PSScriptRoot "Modelfile-temp"
+$modelfileContent = @"
+FROM qwen2.5-coder:7b
+PARAMETER num_gpu 99
+PARAMETER num_ctx 8192
+"@
+$modelfileContent | Out-File -FilePath $modelfilePath -Encoding ascii
+ollama create droid/droid-local -f $modelfilePath
+ollama create pi/pi-local -f $modelfilePath
+Remove-Item $modelfilePath
 
 # --- LiteLLM Setup ---
 Write-Header "Installing AI Bridge (LiteLLM)"
@@ -65,10 +74,16 @@ model_list:
   - model_name: codex/codex-cli
     litellm_params:
       model: ollama/qwen2.5-coder:7b
-  - model_name: letta/letta-local
+  - model_name: openclaw/openclaw-local
     litellm_params:
       model: ollama/qwen2.5-coder:7b
-  - model_name: mistral/mistral-vibe
+  - model_name: claude/claude-local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+  - model_name: droid/droid-local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+  - model_name: pi/pi-local
     litellm_params:
       model: ollama/qwen2.5-coder:7b
   - model_name: qwen/*
@@ -90,6 +105,12 @@ $startScriptContent = @"
 # Start LiteLLM Proxy on port 20128
 Write-Host "Starting Local AI Bridge on port 20128..." -ForegroundColor Cyan
 Write-Host "Ensure Ollama is running in your system tray." -ForegroundColor Gray
+
+# GPU Optimizations for Ollama
+`$env:OLLAMA_FLASH_ATTENTION="1"
+`$env:OLLAMA_KV_CACHE_TYPE="f16"
+`$env:CUDA_VISIBLE_DEVICES="0"
+`$env:OLLAMA_NUM_PARALLEL=4
 
 if (!(Get-Command litellm -ErrorAction SilentlyContinue)) {
     Write-Host "Error: LiteLLM not found. Run 'npm run install-ai-clis' first." -ForegroundColor Red

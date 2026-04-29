@@ -537,6 +537,43 @@
   border-color: var(--accent);
 }
 
+.code-apply-btn {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  z-index: 5;
+}
+
+.code-block-wrapper:hover .code-apply-btn {
+  opacity: 1;
+}
+
+.code-apply-btn:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+}
+
+.code-apply-btn span {
+  display: inline-block;
+}
+
 /* Inline file reference rendered by <FileLink>. Used everywhere the AI
    mentions a path — remark-file-links linkifies them into file:// URLs
    at parse time and FileLink resolves to this chrome at render time.

@@ -54,7 +54,7 @@ If you are using the scripted models (Codex, Qwen, etc.), open 'scripts/start-lo
  * OpenAI-compatible call
  */
 async function makeOpenAiCall(context, messages, tools, iteration) {
-  const { endpoint, apiKey, selectedModel } = context.settings;
+  const { provider, endpoint, apiKey, selectedModel } = context.settings;
   
   const headers = {
     'Content-Type': 'application/json',
@@ -76,11 +76,23 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
   let finalModel = selectedModel.id;
   let finalEndpoint = endpoint;
   
-  const scriptedPrefixes = ['qwen/', 'opencode/', 'codex/', 'letta/', 'mistral/'];
+  const scriptedPrefixes = ['qwen/', 'opencode/', 'codex/', 'openclaw/', 'claude/', 'droid/', 'pi/'];
   if (scriptedPrefixes.some(p => finalModel.startsWith(p))) {
-    finalEndpoint = 'http://localhost:11434/v1'; // Ollama direct OpenAI endpoint
-    finalModel = finalModel.split('/')[1];
-    if (finalModel.includes('qwen') || finalModel.includes('opencode') || finalModel.includes('codex')) {
+    // If it's a scripted model but the user hasn't explicitly changed the endpoint from the default LiteLLM port,
+    // then we force direct Ollama connection as it's the most stable path for these specific models.
+    if (endpoint === "http://localhost:20128/v1") {
+      finalEndpoint = 'http://localhost:11434/v1';
+    }
+    
+    // Map to a known coder model if using the scripted prefix, but allow for variations.
+    // We prioritize qwen2.5-coder:7b as the high-performance base for these agents.
+    if (finalModel.startsWith('droid/') || finalModel.startsWith('pi/') || finalModel.startsWith('claude/') || finalModel.startsWith('openclaw/')) {
+      finalModel = 'qwen2.5-coder:7b';
+    } else if (!finalModel.toLowerCase().includes('coder')) {
+      finalModel = 'qwen2.5-coder:7b';
+    } else {
+      // Strip the prefix for the actual Ollama call (e.g. qwen/qwen-2.5-coder-32b -> qwen2.5-coder:7b)
+      // Actually, we want to force the known stable model for all these scripted agents
       finalModel = 'qwen2.5-coder:7b';
     }
   }
@@ -90,12 +102,7 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
     messages: messages.filter(m => ['user', 'assistant', 'system', 'tool', 'function'].includes(m.role)),
     stream: true,
     max_tokens: selectedModel.maxOutputTokens,
-    // Pass num_gpu through to Ollama via OpenAI compatibility layer
-    options: {
-      num_gpu: 28, // Perfect for 6GB VRAM (GTX 1660 Super)
-      temperature: 0.7,
-      num_ctx: 8000 // Slightly smaller context for better speed on 6GB
-    }
+    temperature: 0.7
   };
   
   if (tools && tools.length > 0) {
@@ -103,9 +110,15 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
     body.tool_choice = 'auto';
   }
   
-  if (selectedModel.thinking) {
+  // Only add thinking for models that explicitly support it (like new Claude or specific proxies)
+  if (selectedModel.thinking && (provider === 'anthropic' || endpoint.includes('anthropic'))) {
     body.thinking = { type: 'enabled', budget_tokens: 8000 };
   }
+
+  console.log(`[ApiClient] Making ${provider} call to ${finalEndpoint} with model ${finalModel}`, {
+    messageCount: body.messages.length,
+    hasTools: !!tools
+  });
   
   const response = await fetch(`${finalEndpoint}/chat/completions`, {
     method: 'POST',
@@ -247,13 +260,13 @@ async function makeGeminiCall(context, messages, tools, iteration) {
  * Native Anthropic call
  */
 async function makeAnthropicCall(context, messages, tools, iteration) {
-  const { endpoint, apiKey, selectedModel } = context.settings;
+  const { provider, endpoint, apiKey, selectedModel } = context.settings;
   const apiEndpoint = endpoint || 'https://api.anthropic.com/v1';
   
   // Strip 'anthropic/' or 'kr/' prefix if present
   const modelName = selectedModel.id.replace(/^(anthropic|kr)\//, '');
   
-  const isLocal = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+  const isLocal = apiEndpoint.includes('localhost') || apiEndpoint.includes('127.0.0.1');
 
   if (!apiKey && !isLocal) {
     throw new Error('Anthropic API Key is missing. Please go to Settings > General and enter your Anthropic API key.');

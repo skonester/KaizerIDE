@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('electron', {
   addRecentWorkspace: (workspacePath) => ipcRenderer.invoke('add-recent-workspace', workspacePath),
   openWorkspaceFromWelcome: (workspacePath) => ipcRenderer.invoke('open-workspace-from-welcome', workspacePath),
   openWorkspaceFromWelcomeWithSSH: () => ipcRenderer.invoke('open-workspace-from-welcome-with-ssh'),
+  showWelcome: () => ipcRenderer.invoke('show-welcome'),
   
   // IPC Renderer for custom events
   ipcRenderer: {

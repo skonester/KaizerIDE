@@ -1242,6 +1242,25 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
             <path d="M8 20h48M20 28l8 8-8 8M32 44h16" />
           </svg>
           <p>Open a file to start editing</p>
+          <button 
+            className="welcome-back-btn" 
+            onClick={() => window.electron.showWelcome()}
+            style={{
+              marginTop: '20px',
+              padding: '8px 16px',
+              background: 'var(--bg-2)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              color: 'var(--text-2)',
+              cursor: 'pointer',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>←</span> Back to Welcome Screen
+          </button>
         </div>
       </div>
     );

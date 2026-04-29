@@ -30,9 +30,13 @@ const DEFAULT_SETTINGS = {
   selectedModel: { id: 'gemini/gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Fastest)', maxOutputTokens: 16000 },
   models: [
     // Scripted Models
-    { id: 'qwen/qwen-2.5-coder-32b', name: 'Qwen 2.5 Coder (Script)', maxOutputTokens: 16000 },
-    { id: 'opencode/opencode-ai', name: 'OpenCode AI (Script)', maxOutputTokens: 16000 },
-    { id: 'codex/codex-cli', name: 'Codex CLI (Script)', maxOutputTokens: 16000 },
+    { id: 'qwen/qwen-2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Ollama)', maxOutputTokens: 16000 },
+    { id: 'opencode/opencode-ai', name: 'OpenCode AI (Ollama)', maxOutputTokens: 16000 },
+    { id: 'codex/codex-cli', name: 'Codex CLI (Ollama)', maxOutputTokens: 16000 },
+    { id: 'openclaw/openclaw-local', name: 'OpenClaw (Ollama)', maxOutputTokens: 16000 },
+    { id: 'claude/claude-local', name: 'Claude Local (Ollama)', maxOutputTokens: 16000 },
+    { id: 'droid/droid-local', name: 'Droid (Ollama)', maxOutputTokens: 16000 },
+    { id: 'pi/pi-local', name: 'Pi (Ollama)', maxOutputTokens: 16000 },
     { id: 'letta/letta-local', name: 'Letta (Local)', maxOutputTokens: 16000 },
     { id: 'mistral/mistral-vibe', name: 'Mistral Vibe', maxOutputTokens: 16000 },
     
@@ -114,11 +118,16 @@ function App() {
 
   // Helper function to open a file in the editor
   const handleFileOpen = async (filePath, options = {}) => {
+    console.log('[App] handleFileOpen called for:', filePath, options);
+    
     // Don't normalize remote paths (they use forward slashes)
     const normalizedPath = sshConnection ? filePath : normalizePath(filePath);
+    console.log('[App] Normalized path:', normalizedPath);
+    
     const existingTab = tabs.find(tab => tab.path === normalizedPath);
     
     if (existingTab) {
+      console.log('[App] Tab already exists, activating:', normalizedPath);
       setActiveTabPath(normalizedPath);
       
       // If diff view is requested, update the tab with diff info
@@ -138,12 +147,14 @@ function App() {
       return;
     }
 
+    console.log('[App] Reading file:', normalizedPath);
     // Use remote or local file reading based on SSH connection
     const result = sshConnection 
       ? await window.electron.readRemoteFile(normalizedPath)
       : await window.electron.readFile(normalizedPath);
     
     if (result.success) {
+      console.log('[App] File read successfully, adding tab');
       const fileName = normalizedPath.split(/[\\/]/).pop();
       
       // Check if this file has pending AI changes
@@ -163,6 +174,9 @@ function App() {
       
       setTabs(prev => [...prev, newTab]);
       setActiveTabPath(normalizedPath);
+    } else {
+      console.error('[App] Failed to read file:', normalizedPath, result.error);
+      setErrorMessage(`Failed to open file: ${result.error}`);
     }
   };
 
@@ -191,8 +205,11 @@ function App() {
       await window.electron.saveWorkspacePath(normalizedPath);
       
       const tree = await window.electron.getFileTree(normalizedPath);
+      console.log('[App] Tree load result:', tree.success ? 'success' : 'failure');
       if (tree.success) {
         window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: tree.tree }));
+      } else {
+        console.warn('[App] Failed to load tree:', tree.error);
       }
     } else {
       // It's a file
@@ -551,20 +568,19 @@ function App() {
 
     const handleOpenFile = async (e) => {
       const { path, showPreview } = e.detail;
+      console.log('[App] kaizer:open-file event received for:', path, { showPreview });
       
       if (!path) return;
       
-      // Read file content
-      const result = await window.electron.readFile(path);
-      if (!result.success) {
-        setErrorMessage(`Failed to open file: ${result.error}`);
-        return;
-      }
-      
-      const fileName = path.split(/[\\/]/).pop();
-      
-      // If showPreview is true and it's a markdown file, ONLY open preview (not the source tab)
+      // If showPreview is true and it's a markdown file, handle separately
       if (showPreview && path.endsWith('.md')) {
+        const result = await window.electron.readFile(path);
+        if (!result.success) {
+          setErrorMessage(`Failed to open preview: ${result.error}`);
+          return;
+        }
+        
+        const fileName = path.split(/[\\/]/).pop();
         const previewPath = `${path}:preview`;
         const previewExists = tabs.find(t => t.path === previewPath);
         
@@ -581,23 +597,8 @@ function App() {
         return;
       }
       
-      // Check if tab already exists
-      const existingTab = tabs.find(t => t.path === path);
-      if (existingTab) {
-        setActiveTabPath(path);
-        return;
-      }
-      
-      // Add new tab
-      const newTab = {
-        path,
-        name: fileName,
-        content: result.content,
-        dirty: false
-      };
-      
-      setTabs(prev => [...prev, newTab]);
-      setActiveTabPath(path);
+      // Otherwise use unified handleFileOpen
+      await handleFileOpen(path);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -706,24 +707,30 @@ function App() {
       } else if (model.id.startsWith('openrouter/')) {
         newSettings.provider = 'openrouter';
         newSettings.endpoint = 'https://openrouter.ai/api/v1';
-      } else if (model.id.startsWith('letta/')) {
-        newSettings.provider = 'letta';
-        newSettings.endpoint = 'http://localhost:8000/v1';
-      } else if (model.id.startsWith('mistral/')) {
-        newSettings.provider = 'mistral-vibe';
-        newSettings.endpoint = 'https://api.mistral.ai/v1';
       } else if (model.id.startsWith('openai/') || model.id.startsWith('gpt-')) {
         newSettings.provider = 'openai-compatible';
         newSettings.endpoint = 'https://api.openai.com/v1';
       } else if (model.id.startsWith('qw/') || model.id.startsWith('qwen/')) {
         newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:20128/v1';
+        newSettings.endpoint = 'http://localhost:11434/v1';
       } else if (model.id.startsWith('opencode/')) {
         newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:20128/v1';
+        newSettings.endpoint = 'http://localhost:11434/v1';
       } else if (model.id.startsWith('codex/')) {
         newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:20128/v1';
+        newSettings.endpoint = 'http://localhost:11434/v1';
+      } else if (model.id.startsWith('openclaw/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:11434/v1';
+      } else if (model.id.startsWith('claude/') && model.id.endsWith('-local')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:11434/v1';
+      } else if (model.id.startsWith('droid/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:11434/v1';
+      } else if (model.id.startsWith('pi/')) {
+        newSettings.provider = 'openai-compatible';
+        newSettings.endpoint = 'http://localhost:11434/v1';
       }
       
       localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
@@ -740,6 +747,8 @@ function App() {
         if (model.id.startsWith('gemini/')) {
           handleModelSelect(model);
         } else if (model.id.startsWith('kr/') || model.id.startsWith('anthropic/')) {
+          handleModelSelect(model);
+        } else if (model.id.startsWith('droid/') || model.id.startsWith('pi/') || model.id.startsWith('openclaw/') || (model.id.startsWith('claude/') && model.id.endsWith('-local'))) {
           handleModelSelect(model);
         }
       }
@@ -798,15 +807,25 @@ function App() {
       
       case 'close-tab':
         if (activeTabPath) {
+          console.log('[App] Closing active tab:', activeTabPath);
           handleTabClose(activeTabPath);
+        } else {
+          console.log('[App] No active tab to close, closing folder instead.');
+          handleMenuAction('close-folder');
         }
         break;
       
       case 'close-folder':
+        console.log('[App] Closing folder and returning to welcome...');
         setWorkspacePath(null);
         setTabs([]);
         setActiveTabPath(null);
         indexer.reset();
+        window.electron.showWelcome();
+        break;
+      
+      case 'show-welcome':
+        window.electron.showWelcome();
         break;
       
       case 'toggle-sidebar':
@@ -931,7 +950,13 @@ function App() {
           />
         )}
         {showHelpModal && (
-          <HelpModal onClose={() => setShowHelpModal(false)} />
+          <HelpModal 
+            onClose={() => setShowHelpModal(false)} 
+            onOpenSettings={() => {
+              setShowHelpModal(false);
+              setShowSettings(true);
+            }}
+          />
         )}
         {showSSHModal && (
           <RemoteConnectionModal

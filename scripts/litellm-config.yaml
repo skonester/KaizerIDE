@@ -8,10 +8,16 @@
   - model_name: codex/codex-cli
     litellm_params:
       model: ollama/qwen2.5-coder:7b
-  - model_name: letta/letta-local
+  - model_name: openclaw/openclaw-local
     litellm_params:
       model: ollama/qwen2.5-coder:7b
-  - model_name: mistral/mistral-vibe
+  - model_name: claude/claude-local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+  - model_name: droid/droid-local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+  - model_name: pi/pi-local
     litellm_params:
       model: ollama/qwen2.5-coder:7b
   - model_name: qwen/*

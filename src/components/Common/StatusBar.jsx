@@ -92,6 +92,11 @@ function StatusBar({ activeFile, modelName, endpoint }) {
         )}
       </div>
       <div className="status-right">
+        <div className="status-ai" title={`Model: ${modelName} | Endpoint: ${endpoint}`}>
+          <span className="ai-icon">✨</span>
+          <span className="ai-model">{modelName}</span>
+          <span className="ai-endpoint">({getEndpointHost(endpoint)})</span>
+        </div>
         {sshStatus.connected && (
           <div className="status-ssh connected" title="SSH Connected">
             <span className="ssh-dot"></span>

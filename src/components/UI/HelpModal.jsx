@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './HelpModal.css';
 
-function HelpModal({ onClose }) {
+function HelpModal({ onClose, onOpenSettings }) {
   const [activeTab, setActiveTab] = useState('overview');
 
   return (
@@ -280,11 +280,32 @@ function HelpModal({ onClose }) {
                 <div className="help-feature-item">
                   <h4>🎯 Recommended Models</h4>
                   <ul>
-                    <li><strong>Claude 4.5 Sonnet</strong> - Best for complex coding tasks and reasoning</li>
-                    <li><strong>GPT-4</strong> - Excellent general-purpose coding assistant</li>
-                    <li><strong>DeepSeek Coder</strong> - Optimized for code generation</li>
-                    <li><strong>Qwen Coder</strong> - Fast and efficient for coding tasks</li>
+                    <li><strong>Claude 3.5 Sonnet</strong> - Industry leading for coding and reasoning</li>
+                    <li><strong>Gemini 2.0 Flash</strong> - Extremely fast with huge context windows</li>
+                    <li><strong>GPT-4o</strong> - Reliable and powerful general-purpose assistant</li>
+                    <li><strong>DeepSeek V3</strong> - Specialized performance for code generation</li>
                   </ul>
+                  <div className="help-info-box">
+                    <strong>✨ Auto-Configuration:</strong>
+                    <p>Selecting a cloud model (Gemini, Claude, GPT) will automatically set the correct API endpoint. You only need to provide your API key in Settings.</p>
+                  </div>
+                </div>
+
+                <div className="help-feature-item">
+                  <h4>🤖 Ollama & Local AI</h4>
+                  <p>
+                    KaizerIDE is optimized for local AI via Ollama and LiteLLM. 
+                    We've pre-configured several high-performance models:
+                  </p>
+                  <ul>
+                    <li><strong>Qwen 2.5 Coder</strong> - Best-in-class local coding model</li>
+                    <li><strong>OpenClaw</strong> - Advanced reasoning and planning</li>
+                    <li><strong>Claude (Local)</strong> - Ollama-powered Claude compatible model</li>
+                  </ul>
+                  <div className="help-info-box">
+                    <strong>💡 Local Setup:</strong>
+                    <p>Run <code>npm run install-ai-clis</code> and <code>npm run start-ai</code> to enable these models.</p>
+                  </div>
                 </div>
 
                 <div className="help-feature-item">
@@ -323,13 +344,18 @@ function HelpModal({ onClose }) {
 
         <div className="help-modal-footer">
           <div className="help-footer-info">
-            <span>KaizerIDE v1.0.0</span>
+            <span>KaizerIDE v5.2.0</span>
             <span>•</span>
             <span>Built with React & Electron</span>
           </div>
-          <button className="help-btn-primary" onClick={onClose}>
-            Got it!
-          </button>
+          <div className="help-footer-actions">
+            <button className="help-btn-secondary" onClick={onOpenSettings}>
+              ⚙️ Settings
+            </button>
+            <button className="help-btn-primary" onClick={onClose}>
+              Got it!
+            </button>
+          </div>
         </div>
       </div>
     </div>

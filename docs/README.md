@@ -37,12 +37,14 @@ It ships with **local workspace indexing** so the AI understands your entire cod
 
 This fork supercharges KaizerIDE with deep local AI integration and optimized performance:
 
-- **Automated AI CLI Tooling**: Instantly setup professional AI tools including Gemini CLI, Claude Code, Qwen, and more with a single command.
+- **Automated AI CLI Tooling**: Instantly setup professional AI tools including Gemini CLI, Claude Code, Qwen, OpenClaw, Droid, and more with a single command.
 - **Local AI Bridge Server**: Dedicated LiteLLM-powered bridge for seamless connectivity between the IDE and **Ollama**.
+- **Expanded Model Support**: Native routing for **OpenClaw**, **Droid**, **Pi**, and local **Claude** models via the AI bridge.
 - **GPU-Optimized Qwen Integration**: Pre-configured to use **Ollama** as the backend, specifically optimized for **Qwen 2.5 Coder** with forced GPU acceleration for instant responses.
 - **One-Click Setup**: New npm scripts for rapid environment initialization:
-  - `npm run install-ai-clis`: Installs and configures the AI CLI suite.
+  - `npm run install-ai-clis`: Automates the downloading of essential **Ollama models** (Qwen 2.5, DeepSeek Coder, Phi-3, etc.) and configures the LiteLLM bridge.
   - `npm run start-ai`: Launches the local AI bridge server.
+  - `npm run build:win`: Builds the production installer with all local enhancements.
 
 See the **[Quick Start](QUICK_START.md)** for setup instructions.
 
@@ -124,7 +126,7 @@ See the **[Quick Start](QUICK_START.md)** for setup instructions.
 
 1. Run `KaizerIDE-X.Y.Z.exe`.
 2. Open a folder with `Ctrl+O`.
-3. (Optional) Run `npm run install-ai-clis` to setup local AI tools.
+3. (Optional) Run `npm run install-ai-clis` to automatically download the required Ollama models and setup the bridge.
 4. Configure your AI endpoint in **Settings → General**.
 5. Press `Ctrl+Shift+P` and start coding.
 

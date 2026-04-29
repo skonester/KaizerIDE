@@ -14,13 +14,18 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
   const joinPath = (base, relative) => {
     if (!base) return relative;
     if (!relative) return base;
+    
+    // Normalize relative path: remove leading slash/backslash
+    const cleanRelative = relative.replace(/^[\\/]+/, '');
+    
     const separator = base.includes('\\') ? '\\' : '/';
-    return base.endsWith(separator) ? base + relative : base + separator + relative;
+    return base.endsWith(separator) ? base + cleanRelative : base + separator + cleanRelative;
   };
   
   // Wrap tool execution with retry logic for transient failures
   const executeWithRetry = async (attemptNumber) => {
     switch (toolName) {
+      case 'read-file':
       case 'read_file': {
         const fullPath = workspacePath
           ? joinPath(workspacePath, args.path)
@@ -56,10 +61,16 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
           .join('\n');
       }
     
+    case 'save_file':
+    case 'write-file':
     case 'write_file': {
-      const fullPath = workspacePath 
+      // Improve path handling: if args.path is absolute, use it directly
+      const isAbsolute = args.path.includes(':') || args.path.startsWith('/') || args.path.startsWith('\\');
+      const fullPath = (workspacePath && !isAbsolute)
         ? joinPath(workspacePath, args.path)
         : args.path;
+      
+      console.log('[Agent] write_file called for:', fullPath);
       
       // Read original content before writing
       const existsResult = await window.electron.readFile(fullPath);
@@ -81,10 +92,30 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
         }));
         return `File written successfully: ${args.path}`;
       } else {
+        console.error('[Agent] Error writing file:', result.error, 'Path:', fullPath);
         return `Error writing file: ${result.error}`;
       }
     }
+
+    case 'create-file':
+    case 'create_file': {
+      const fullPath = workspacePath
+        ? joinPath(workspacePath, args.path)
+        : args.path;
+      
+      const parts = fullPath.split(/[\\/]/);
+      const fileName = parts.pop();
+      const dirPath = parts.join('\\');
+      
+      const result = await window.electron.createFile(dirPath, fileName);
+      if (result.success) {
+        return `File created successfully: ${args.path}`;
+      } else {
+        return `Error creating file: ${result.error}`;
+      }
+    }
     
+    case 'list-directory':
     case 'list_directory': {
       const fullPath = workspacePath 
         ? joinPath(workspacePath, args.path || '')
@@ -99,6 +130,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
       }
     }
     
+    case 'run-command':
     case 'run_command': {
       const cwd = args.cwd 
         ? (workspacePath ? joinPath(workspacePath, args.cwd) : args.cwd)
@@ -332,6 +364,50 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
           return `${path} (${matches.length} reference${matches.length > 1 ? 's' : ''})\n${lines}`;
         })
         .join('\n\n');
+    }
+
+    case 'create_folder': {
+      const fullPath = workspacePath
+        ? joinPath(workspacePath, args.path)
+        : args.path;
+      const result = await window.electron.createFolder(fullPath);
+      if (result.success) {
+        return `Folder created successfully: ${args.path}`;
+      } else {
+        return `Error creating folder: ${result.error}`;
+      }
+    }
+
+    case 'delete_file': {
+      const fullPath = workspacePath
+        ? joinPath(workspacePath, args.path)
+        : args.path;
+      const result = await window.electron.deleteFile(fullPath);
+      if (result.success) {
+        return `Successfully deleted: ${args.path}`;
+      } else {
+        return `Error deleting: ${result.error}`;
+      }
+    }
+
+    case 'rename_file': {
+      const oldFullPath = workspacePath
+        ? joinPath(workspacePath, args.oldPath)
+        : args.oldPath;
+      const newFullPath = workspacePath
+        ? joinPath(workspacePath, args.newPath)
+        : args.newPath;
+      const result = await window.electron.renameFile(oldFullPath, newFullPath);
+      if (result.success) {
+        return `Successfully renamed ${args.oldPath} to ${args.newPath}`;
+      } else {
+        return `Error renaming: ${result.error}`;
+      }
+    }
+
+    case 'get_index_summary': {
+      const summary = indexer.getIndexSummary();
+      return summary || "No index summary available. Wait for indexing to complete.";
     }
 
     default:

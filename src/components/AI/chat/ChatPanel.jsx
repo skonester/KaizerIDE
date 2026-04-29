@@ -29,23 +29,7 @@ import './ChatPanel.css';
 // previews.
 const CHAT_REMARK_PLUGINS = [remarkGfm, remarkFileLinks];
 
-const MARKDOWN_LINK_RENDERER = ({ node, href, children, ...props }) => {
-  if (href && href.startsWith('file://')) {
-    const path = href.replace('file://', '');
-    return <FileLink path={path}>{children}</FileLink>;
-  }
-  return (
-    <a
-      className="assistant-link"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-    >
-      {children}
-    </a>
-  );
-};
+
 
 /**
  * react-markdown v9 no longer passes `inline` to the `code` component,
@@ -150,7 +134,7 @@ const MARKDOWN_CODE_RENDERER_STATIC = ({ node, className, children, ...props }) 
   return <StaticCodeBlock language={language} code={raw} {...props} />;
 };
 
-function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile, onSelectModel }) {
+function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onOpenFile, onSelectModel, onAddModel }) {
   const [messages, setMessages] = useState([]);
   const [streamingMsg, setStreamingMsg] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -170,6 +154,48 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Link renderer that uses workspacePath to resolve relative links
+  const markdownLinkRenderer = useCallback(({ node, href, children, ...props }) => {
+    // If it's explicitly a file:// URL or it looks like a relative file path
+    // (doesn't start with protocol, hash, etc), treat it as a FileLink.
+    const isFile = href && (
+      href.startsWith('file://') || 
+      (!href.startsWith('http') && !href.startsWith('mailto') && !href.startsWith('#') && !href.includes('://'))
+    );
+
+    if (isFile) {
+      let path = href.startsWith('file://') ? href.replace('file://', '') : href;
+      
+      // On Windows, file:// links often result in paths like /C:/path
+      // We need to strip the leading slash if it's followed by a drive letter
+      if (path.match(/^\/[a-zA-Z]:/)) {
+        path = path.substring(1);
+      }
+      
+      // Resolve relative path to absolute workspace path if needed
+      if (workspacePath && !path.includes(':') && !path.startsWith('/') && !path.startsWith('\\')) {
+        // Simple join that handles Windows backslashes
+        const cleanPath = path.replace(/^[\\/]+/, '');
+        path = workspacePath.endsWith('\\') ? `${workspacePath}${cleanPath}` : `${workspacePath}\\${cleanPath}`;
+      }
+      
+      return <FileLink path={path}>{children}</FileLink>;
+    }
+
+    return (
+      <a
+        className="assistant-link"
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  }, [workspacePath]);
+
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -391,20 +417,57 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         // Merge with existing card
         const existingFileIdx = prev.files.findIndex(f => f.path === path);
         
+        // Preserve original content from the first time this file was touched in this turn
+        const updatedUndoStack = (path in prev.undoStack) 
+          ? prev.undoStack 
+          : { ...prev.undoStack, ...newUndoEntry };
+
         if (existingFileIdx >= 0) {
           // Update existing file
           return {
             files: prev.files.map((f, idx) => idx === existingFileIdx ? newFile : f),
-            undoStack: { ...prev.undoStack, ...newUndoEntry }
+            undoStack: updatedUndoStack
           };
         } else {
           // Add new file
           return {
             files: [...prev.files, newFile],
-            undoStack: { ...prev.undoStack, ...newUndoEntry }
+            undoStack: updatedUndoStack
           };
         }
       });
+    };
+
+    const handleApplyCodeBlock = async (e) => {
+      const { content, language } = e.detail;
+      // Default filename guess based on language
+      const ext = language === 'javascript' ? '.js' : language === 'typescript' ? '.ts' : language === 'python' ? '.py' : '.txt';
+      const defaultName = `new_file${ext}`;
+      
+      const filePath = window.prompt('Enter path to save this file:', defaultName);
+      if (!filePath) return;
+      
+      const fullPath = workspacePath ? `${workspacePath}\\${filePath.replace(/^[\\/]+/, '')}` : filePath;
+      
+      try {
+        const result = await window.electron.writeFile(fullPath, content);
+        if (result.success) {
+          toast.success(`File saved to ${filePath}`);
+          // Notify UI
+          window.dispatchEvent(new CustomEvent('kaizer:file-written', {
+            detail: {
+              path: fullPath,
+              type: 'added',
+              content: content,
+              originalContent: ''
+            }
+          }));
+        } else {
+          toast.error(`Failed to save: ${result.error}`);
+        }
+      } catch (err) {
+        toast.error(`Error saving file: ${err.message}`);
+      }
     };
 
     const handleImprovePlan = (e) => {
@@ -448,6 +511,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     window.addEventListener('kaizer:paste-to-chat', handlePasteToChat);
     window.addEventListener('kaizer:request-command-permission', handleCommandPermission);
     window.addEventListener('kaizer:file-written', handleFileWritten);
+    window.addEventListener('kaizer:apply-code-block', handleApplyCodeBlock);
     window.addEventListener('kaizer:improve-plan', handleImprovePlan);
     window.addEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
     window.addEventListener('kaizer:focus-chat', handleFocusChat);
@@ -457,6 +521,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
       window.removeEventListener('kaizer:paste-to-chat', handlePasteToChat);
       window.removeEventListener('kaizer:request-command-permission', handleCommandPermission);
       window.removeEventListener('kaizer:file-written', handleFileWritten);
+      window.removeEventListener('kaizer:apply-code-block', handleApplyCodeBlock);
       window.removeEventListener('kaizer:improve-plan', handleImprovePlan);
       window.removeEventListener('kaizer:ask-about-plan', handleAskAboutPlan);
       window.removeEventListener('kaizer:focus-chat', handleFocusChat);
@@ -1131,7 +1196,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                     remarkPlugins={CHAT_REMARK_PLUGINS}
                     unwrapDisallowed={true}
                     components={{
-                      a: MARKDOWN_LINK_RENDERER,
+                      a: markdownLinkRenderer,
                       code: MARKDOWN_CODE_RENDERER_STREAMING,
                     }}
                   >
@@ -1236,7 +1301,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                         remarkPlugins={CHAT_REMARK_PLUGINS}
                         unwrapDisallowed={true}
                         components={{
-                          a: MARKDOWN_LINK_RENDERER,
+                          a: markdownLinkRenderer,
                           code: MARKDOWN_CODE_RENDERER_STATIC,
                           p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
                           strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
@@ -1350,7 +1415,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                   remarkPlugins={CHAT_REMARK_PLUGINS}
                   unwrapDisallowed={true}
                   components={{
-                    a: MARKDOWN_LINK_RENDERER,
+                    a: markdownLinkRenderer,
                     code: MARKDOWN_CODE_RENDERER_STATIC,
                     p: ({ children }) => <div className="assistant-paragraph">{children}</div>,
                     strong: ({ children }) => <strong className="assistant-bold">{children}</strong>,
