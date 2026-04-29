@@ -1,0 +1,11 @@
+Relevant Files Summary:
+
+1. install-ai-clis.ps1 (132 lines)
+   - Primary script for installing AI CLI tools.
+   - Sets ErrorActionPreference, defines Write-Header function, installs Ollama, pulls model, creates custom Ollama models, installs litellm, updates litellm-config.yaml, and modifies start-local-ai.ps1.
+
+2. start-local-ai.ps1 (19 lines)
+   - Script to start the LiteLLM proxy on port 20128.
+   - Prints start messages, sets GPU optimization environment variables for Ollama (e.g., OLLAMA_FLASH_ATTENTION=1).
+
+The dummy.txt file now contains this summary.
