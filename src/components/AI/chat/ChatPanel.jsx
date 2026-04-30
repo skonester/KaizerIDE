@@ -1473,6 +1473,335 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onOpenHistory={() => setShowHistoryModal(true)}
       />
 
+      {/* File Operations Toolbar */}
+      <div className="file-operations-toolbar">
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            // Open file picker to select a file to open
+            window.dispatchEvent(new CustomEvent('kaizer:open-filepicker', {
+              detail: { 
+                startPath: workspacePath,
+                mode: 'file',
+                onSelect: (items) => {
+                  if (items.length > 0 && onOpenFile) {
+                    onOpenFile(items[0].path);
+                  }
+                }
+              }
+            }));
+          }}
+          title="Open File"
+        >
+          <Icon name="FolderOpen" size={14} />
+          <span>Open File</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            const fileName = prompt('Enter new file name (with extension):', 'newfile.js');
+            if (!fileName) return;
+            
+            const fullPath = `${workspacePath}\\${fileName.replace(/^[\\/]+/, '')}`;
+            
+            // Create empty file
+            window.electron.writeFile(fullPath, '').then(result => {
+              if (result.success) {
+                toast.success(`Created ${fileName}`);
+                if (onOpenFile) {
+                  onOpenFile(fullPath);
+                }
+                // Refresh file tree
+                window.dispatchEvent(new CustomEvent('kaizer:file-written', {
+                  detail: {
+                    path: fullPath,
+                    type: 'added',
+                    content: '',
+                    originalContent: ''
+                  }
+                }));
+              } else {
+                toast.error(`Failed to create file: ${result.error}`);
+              }
+            });
+          }}
+          title="Create New File"
+        >
+          <Icon name="FilePlus" size={14} />
+          <span>New File</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            const folderName = prompt('Enter new folder name:', 'newfolder');
+            if (!folderName) return;
+            
+            const fullPath = `${workspacePath}\\${folderName.replace(/^[\\/]+/, '')}`;
+            
+            // Create folder via command
+            const isWindows = navigator.platform.toLowerCase().includes('win');
+            const command = isWindows ? `mkdir "${fullPath}"` : `mkdir -p "${fullPath}"`;
+            
+            window.electron.runCommand(command, workspacePath).then(result => {
+              if (result.exitCode === 0) {
+                toast.success(`Created folder ${folderName}`);
+                // Refresh file tree
+                window.dispatchEvent(new CustomEvent('kaizer:tree-refresh'));
+              } else {
+                toast.error(`Failed to create folder: ${result.stderr || 'Unknown error'}`);
+              }
+            });
+          }}
+          title="Create New Folder"
+        >
+          <Icon name="FolderPlus" size={14} />
+          <span>New Folder</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            // Open file picker to attach files as context
+            window.dispatchEvent(new CustomEvent('kaizer:open-filepicker', {
+              detail: { 
+                startPath: workspacePath,
+                mode: 'multi',
+                onSelect: (items) => {
+                  items.forEach(item => {
+                    handleAddContext('file', item.path);
+                  });
+                  toast.success(`Added ${items.length} file(s) to context`);
+                }
+              }
+            }));
+          }}
+          title="Attach Files to Context"
+        >
+          <Icon name="Paperclip" size={14} />
+          <span>Attach Files</span>
+        </button>
+
+        <div className="file-op-separator"></div>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            if (!activeFile) {
+              toast.error('No file is currently open in editor');
+              return;
+            }
+            // Edit current file - just open it (already open, but ensures focus)
+            if (onOpenFile) {
+              onOpenFile(activeFile);
+              toast.success(`Editing ${activeFile.split(/[\\/]/).pop()}`);
+            }
+          }}
+          title="Edit Current File"
+          disabled={!activeFile}
+        >
+          <Icon name="Edit" size={14} />
+          <span>Edit Current</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            if (!activeFile) {
+              toast.error('No file is currently open in editor');
+              return;
+            }
+            if (!activeFileContent) {
+              toast.error('No content to save');
+              return;
+            }
+            // Save current file
+            window.electron.writeFile(activeFile, activeFileContent).then(result => {
+              if (result.success) {
+                toast.success(`Saved ${activeFile.split(/[\\/]/).pop()}`);
+                window.dispatchEvent(new CustomEvent('kaizer:file-written', {
+                  detail: {
+                    path: activeFile,
+                    type: 'modified',
+                    content: activeFileContent,
+                    originalContent: activeFileContent // In real app, you'd track original
+                  }
+                }));
+              } else {
+                toast.error(`Failed to save file: ${result.error}`);
+              }
+            });
+          }}
+          title="Save Current File"
+          disabled={!activeFile || !activeFileContent}
+        >
+          <Icon name="Save" size={14} />
+          <span>Save</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            if (!activeFile) {
+              toast.error('No file is currently open in editor');
+              return;
+            }
+            // Rename current file
+            const currentName = activeFile.split(/[\\/]/).pop();
+            const newName = prompt(`Rename "${currentName}" to:`, currentName);
+            if (!newName || newName === currentName) return;
+            
+            const newPath = activeFile.replace(currentName, newName);
+            
+            window.electron.renameFile(activeFile, newPath).then(result => {
+              if (result.success) {
+                toast.success(`Renamed to ${newName}`);
+                if (onOpenFile) {
+                  onOpenFile(newPath);
+                }
+                window.dispatchEvent(new CustomEvent('kaizer:file-renamed', {
+                  detail: {
+                    oldPath: activeFile,
+                    newPath: newPath
+                  }
+                }));
+              } else {
+                toast.error(`Failed to rename file: ${result.error}`);
+              }
+            });
+          }}
+          title="Rename Current File"
+          disabled={!activeFile}
+        >
+          <Icon name="FileText" size={14} />
+          <span>Rename</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            if (!activeFile) {
+              toast.error('No file is currently open in editor');
+              return;
+            }
+            // Delete current file
+            const fileName = activeFile.split(/[\\/]/).pop();
+            if (confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
+              window.electron.deleteFile(activeFile).then(result => {
+                if (result.success) {
+                  toast.success(`Deleted ${fileName}`);
+                  window.dispatchEvent(new CustomEvent('kaizer:file-deleted', {
+                    detail: {
+                      path: activeFile
+                    }
+                  }));
+                } else {
+                  toast.error(`Failed to delete file: ${result.error}`);
+                }
+              });
+            }
+          }}
+          title="Delete Current File"
+          disabled={!activeFile}
+        >
+          <Icon name="Trash2" size={14} />
+          <span>Delete</span>
+        </button>
+
+        <button
+          className="file-op-btn"
+          onClick={() => {
+            if (!workspacePath) {
+              toast.error('Please open a workspace first');
+              return;
+            }
+            // Quick access to common file types
+            const fileType = prompt('Create which type of file?\n1. JavaScript (.js)\n2. TypeScript (.ts)\n3. Python (.py)\n4. HTML (.html)\n5. CSS (.css)\n6. Markdown (.md)\n\nEnter number or custom extension:', '1');
+            
+            let ext = '.js';
+            let template = '';
+            
+            switch(fileType) {
+              case '1': ext = '.js'; template = '// JavaScript file\nconsole.log("Hello World");'; break;
+              case '2': ext = '.ts'; template = '// TypeScript file\nconsole.log("Hello World");'; break;
+              case '3': ext = '.py'; template = '# Python file\nprint("Hello World")'; break;
+              case '4': ext = '.html'; template = '<!DOCTYPE html>\n<html>\n<head>\n  <title>New Page</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>'; break;
+              case '5': ext = '.css'; template = '/* CSS file */\nbody {\n  margin: 0;\n  padding: 0;\n}'; break;
+              case '6': ext = '.md'; template = '# Markdown File\n\nThis is a new markdown file.'; break;
+              default: 
+                if (fileType && fileType.includes('.')) {
+                  ext = fileType.startsWith('.') ? fileType : `.${fileType}`;
+                } else if (fileType) {
+                  ext = `.${fileType}`;
+                }
+                template = `// ${ext} file\n// Created at ${new Date().toLocaleString()}`;
+            }
+            
+            const fileName = prompt(`Enter file name (extension ${ext} will be added):`, `newfile`);
+            if (!fileName) return;
+            
+            const fullName = fileName.endsWith(ext) ? fileName : `${fileName}${ext}`;
+            const fullPath = `${workspacePath}\\${fullName.replace(/^[\\/]+/, '')}`;
+            
+            window.electron.writeFile(fullPath, template).then(result => {
+              if (result.success) {
+                toast.success(`Created ${fullName}`);
+                if (onOpenFile) {
+                  onOpenFile(fullPath);
+                }
+                window.dispatchEvent(new CustomEvent('kaizer:file-written', {
+                  detail: {
+                    path: fullPath,
+                    type: 'added',
+                    content: template,
+                    originalContent: ''
+                  }
+                }));
+              } else {
+                toast.error(`Failed to create file: ${result.error}`);
+              }
+            });
+          }}
+          title="Quick Create File"
+        >
+          <Icon name="Zap" size={14} />
+          <span>Quick Create</span>
+        </button>
+      </div>
+
       {/* Messages Area - owns its own scroll. Completed messages +
           interleaved tool groups come from MessageList; the live
           streaming message and typing indicator are rendered directly

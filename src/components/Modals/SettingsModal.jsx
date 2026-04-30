@@ -8,6 +8,12 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
   
+  // Store API keys per provider
+  const [providerKeys, setProviderKeys] = useState(() => {
+    const saved = localStorage.getItem('kaizer-provider-keys');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
   // Indexer status state
   const [indexStatus, setIndexStatus] = useState(() => ({
     status: indexer.status,
@@ -56,7 +62,19 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
   });
 
   const handleSaveGeneral = () => {
-    onSave(localSettings);
+    // Save provider keys to localStorage
+    localStorage.setItem('kaizer-provider-keys', JSON.stringify(providerKeys));
+    
+    // Get the current provider's key for the main settings
+    const currentKey = providerKeys[localSettings.provider] || '';
+    
+    // Update localSettings with the current provider's key
+    const updatedSettings = {
+      ...localSettings,
+      apiKey: currentKey
+    };
+    
+    onSave(updatedSettings);
   };
 
   const handleSaveEditor = () => {
@@ -204,17 +222,20 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
               </div>
 
               <div className="setting-group">
-                <label>API Key</label>
+                <label>API Key for {localSettings.provider}</label>
                 <div className="api-key-input-wrapper">
                   <input
                     type={showApiKey ? 'text' : 'password'}
                     className="api-key-input"
-                    value={localSettings.apiKey}
-                    onChange={(e) => setLocalSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+                    value={providerKeys[localSettings.provider] || ''}
+                    onChange={(e) => setProviderKeys(prev => ({
+                      ...prev,
+                      [localSettings.provider]: e.target.value
+                    }))}
                     placeholder={
-                      localSettings.provider === 'anthropic' || localSettings.provider === 'google-gemini' || localSettings.provider === 'openrouter'
+                      localSettings.provider === 'anthropic' || localSettings.provider === 'google-gemini' || localSettings.provider === 'openrouter' || localSettings.provider === 'openai' || localSettings.provider === 'deepseek' || localSettings.provider === 'mistral-vibe'
                         ? 'Required' 
-                        : 'Optional'
+                        : 'Optional (leave empty for local models)'
                     }
                   />
                   <button
@@ -226,13 +247,37 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                 </div>
                 <span className="setting-description">
                   {localSettings.provider === 'anthropic' 
-                    ? 'Your Anthropic API key (required)' 
+                    ? 'Your Anthropic API key (required for Claude models)' 
                     : localSettings.provider === 'google-gemini'
-                      ? 'Your Google AI Studio key (required)'
-                      : 'Optional API key for authentication'}
+                      ? 'Your Google AI Studio key (required for Gemini models)'
+                      : localSettings.provider === 'openai'
+                        ? 'Your OpenAI API key (required for GPT models)'
+                        : localSettings.provider === 'openrouter'
+                          ? 'Your OpenRouter API key (required)'
+                          : localSettings.provider === 'deepseek'
+                            ? 'Your DeepSeek API key (required)'
+                            : localSettings.provider === 'mistral-vibe'
+                              ? 'Your Mistral API key (required)'
+                              : 'API key for authentication (optional for local models)'}
                 </span>
                 <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-3)', fontStyle: 'italic' }}>
-                  Tip: Selecting a model from the chat panel will automatically configure the endpoint for you.
+                  Tip: Each provider has its own key storage. Switching providers won't lose your keys.
+                </div>
+                <div style={{ marginTop: '8px' }}>
+                  <button 
+                    className="small-btn"
+                    onClick={() => {
+                      const keys = Object.keys(providerKeys).filter(k => providerKeys[k]);
+                      if (keys.length === 0) {
+                        alert('No API keys stored yet.');
+                      } else {
+                        const message = keys.map(k => `${k}: ${providerKeys[k].substring(0, 8)}...`).join('\n');
+                        alert(`Stored API keys:\n\n${message}\n\nKeys are securely stored in localStorage.`);
+                      }
+                    }}
+                  >
+                    View Stored Keys
+                  </button>
                 </div>
               </div>
 

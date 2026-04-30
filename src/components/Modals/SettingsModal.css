@@ -276,6 +276,22 @@
   background: var(--bg-4);
 }
 
+.small-btn {
+  background: var(--bg-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.small-btn:hover {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+
 .prompt-textarea {
   background: var(--bg-1);
   border: 1px solid var(--border);

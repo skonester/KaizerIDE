@@ -80,6 +80,20 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('kaizer-settings');
+    let providerKeys = JSON.parse(localStorage.getItem('kaizer-provider-keys') || '{}');
+    
+    // Migration: If we have old single API key but no provider keys, migrate it
+    if (saved && Object.keys(providerKeys).length === 0) {
+      const parsed = JSON.parse(saved);
+      if (parsed.apiKey && parsed.provider) {
+        providerKeys = {
+          [parsed.provider]: parsed.apiKey
+        };
+        localStorage.setItem('kaizer-provider-keys', JSON.stringify(providerKeys));
+        console.log('Migrated single API key to provider-specific storage');
+      }
+    }
+    
     if (!saved) return DEFAULT_SETTINGS;
     
     const parsed = JSON.parse(saved);
@@ -93,7 +107,15 @@ function App() {
       }
     });
     
-    return { ...parsed, models: newModels };
+    // Get the API key for the current provider from providerKeys
+    const currentProvider = parsed.provider || DEFAULT_SETTINGS.provider;
+    const apiKey = providerKeys[currentProvider] || parsed.apiKey || '';
+    
+    return { 
+      ...parsed, 
+      models: newModels,
+      apiKey: apiKey
+    };
   });
   const [errorMessage, setErrorMessage] = useState(null);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
@@ -688,6 +710,8 @@ function App() {
   };
 
   const handleSettingsSave = (newSettings) => {
+    // Note: The SettingsModal now handles saving provider keys separately
+    // The newSettings.apiKey contains the key for the CURRENT provider only
     setSettings(newSettings);
     localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
     setShowSettings(false);
@@ -695,6 +719,7 @@ function App() {
 
   const handleModelSelect = (model) => {
     setSettings(prev => {
+      const providerKeys = JSON.parse(localStorage.getItem('kaizer-provider-keys') || '{}');
       const newSettings = { ...prev, selectedModel: model };
       
       // Auto-switch provider if the model ID matches a specific provider
@@ -733,6 +758,9 @@ function App() {
         newSettings.endpoint = 'http://localhost:11434/v1';
       }
       
+      // Load the API key for the new provider
+      newSettings.apiKey = providerKeys[newSettings.provider] || '';
+      
       localStorage.setItem('kaizer-settings', JSON.stringify(newSettings));
       return newSettings;
     });
@@ -752,6 +780,17 @@ function App() {
           handleModelSelect(model);
         }
       }
+    }
+    
+    // Ensure we have the correct API key for the current provider
+    const providerKeys = JSON.parse(localStorage.getItem('kaizer-provider-keys') || '{}');
+    const currentKey = providerKeys[settings.provider] || settings.apiKey || '';
+    
+    if (currentKey !== settings.apiKey) {
+      setSettings(prev => ({
+        ...prev,
+        apiKey: currentKey
+      }));
     }
   }, []);
 
