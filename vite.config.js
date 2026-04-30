@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
     emptyOutDir: true
   },
   server: {
-    port: 5174
+    port: 5175,
+    host: '0.0.0.0'
   }
 }));

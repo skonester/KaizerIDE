@@ -863,6 +863,74 @@ function App() {
         window.electron.showWelcome();
         break;
       
+      case 'close-all-tabs':
+        console.log('[App] Closing all tabs');
+        setTabs([]);
+        setActiveTabPath(null);
+        break;
+      
+      case 'remove-file':
+        if (activeTabPath) {
+          const confirm = window.confirm(`Are you sure you want to remove "${activeTabPath}" from workspace?\n\nThis will close the tab but keep the file on disk.`);
+          if (confirm) {
+            handleTabClose(activeTabPath);
+          }
+        } else {
+          setErrorMessage('No file selected to remove');
+        }
+        break;
+      
+      case 'save-workspace':
+        if (workspacePath) {
+          const workspaceName = prompt('Enter workspace name:', 'My Workspace');
+          if (workspaceName) {
+            const workspaceData = {
+              name: workspaceName,
+              path: workspacePath,
+              tabs: tabs.map(tab => ({ path: tab.path, content: tab.content })),
+              timestamp: Date.now()
+            };
+            // Save workspace to localStorage for now
+            const workspaces = JSON.parse(localStorage.getItem('kaizer-workspaces') || '[]');
+            workspaces.push(workspaceData);
+            localStorage.setItem('kaizer-workspaces', JSON.stringify(workspaces));
+            
+            // Show success message
+            const event = new CustomEvent('kaizer:show-toast', {
+              detail: {
+                type: 'success',
+                message: 'Workspace saved',
+                description: `Workspace "${workspaceName}" saved successfully`,
+                duration: 3000
+              }
+            });
+            window.dispatchEvent(event);
+          }
+        } else {
+          setErrorMessage('No workspace open to save');
+        }
+        break;
+      
+      case 'close-session':
+        console.log('[App] Closing session');
+        // Clear all state
+        setWorkspacePath(null);
+        setTabs([]);
+        setActiveTabPath(null);
+        setSidebarVisible(true);
+        setTerminalVisible(false);
+        indexer.reset();
+        // Clear chat history for this session
+        localStorage.removeItem('kaizer-current-chat');
+        // Show welcome screen
+        window.electron.showWelcome();
+        break;
+      
+      case 'exit-app':
+        console.log('[App] Exiting application');
+        window.electron.exitApp();
+        break;
+      
       case 'show-welcome':
         window.electron.showWelcome();
         break;
@@ -1021,8 +1089,18 @@ function App() {
                 shortcut: 'Ctrl+K S', run: () => handleMenuAction('save-all') },
               { id: 'file.closeTab', group: 'File', title: 'Close Tab',
                 shortcut: 'Ctrl+W', run: () => handleMenuAction('close-tab') },
+              { id: 'file.closeAllTabs', group: 'File', title: 'Close All Tabs',
+                run: () => handleMenuAction('close-all-tabs') },
+              { id: 'file.removeFile', group: 'File', title: 'Remove File from Workspace',
+                run: () => handleMenuAction('remove-file') },
+              { id: 'file.saveWorkspace', group: 'File', title: 'Save Workspace As…',
+                run: () => handleMenuAction('save-workspace') },
               { id: 'file.closeFolder', group: 'File', title: 'Close Folder',
                 run: () => handleMenuAction('close-folder') },
+              { id: 'file.closeSession', group: 'File', title: 'Close Session',
+                run: () => handleMenuAction('close-session') },
+              { id: 'file.exitApp', group: 'File', title: 'Exit',
+                shortcut: 'Alt+F4', run: () => handleMenuAction('exit-app') },
               { id: 'view.toggleSidebar', group: 'View', title: 'Toggle Sidebar',
                 shortcut: 'Ctrl+B', run: () => handleMenuAction('toggle-sidebar') },
               { id: 'view.toggleTerminal', group: 'View', title: 'New Terminal',

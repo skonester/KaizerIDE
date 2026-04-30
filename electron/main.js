@@ -380,6 +380,10 @@ ipcMain.handle('window-close', () => {
   }
 });
 
+ipcMain.handle('exit-app', () => {
+  app.quit();
+});
+
 ipcMain.handle('get-open-path', () => {
   return openPath;
 });

@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electron', {
   openWorkspaceFromWelcome: (workspacePath) => ipcRenderer.invoke('open-workspace-from-welcome', workspacePath),
   openWorkspaceFromWelcomeWithSSH: () => ipcRenderer.invoke('open-workspace-from-welcome-with-ssh'),
   showWelcome: () => ipcRenderer.invoke('show-welcome'),
+  exitApp: () => ipcRenderer.invoke('exit-app'),
   
   // IPC Renderer for custom events
   ipcRenderer: {

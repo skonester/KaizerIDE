@@ -35,9 +35,16 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
         { type: 'separator' },
         { label: 'Save', shortcut: 'Ctrl+S', action: 'save-file' },
         { label: 'Save All', shortcut: 'Ctrl+K S', action: 'save-all' },
+        { label: 'Save Workspace As...', action: 'save-workspace' },
         { type: 'separator' },
         { label: 'Close Editor', shortcut: 'Ctrl+W', action: 'close-tab' },
+        { label: 'Close All Editors', action: 'close-all-tabs' },
+        { label: 'Remove File from Workspace', action: 'remove-file' },
+        { type: 'separator' },
         { label: 'Close Folder', action: 'close-folder' },
+        { label: 'Close Session', action: 'close-session' },
+        { type: 'separator' },
+        { label: 'Exit', shortcut: 'Alt+F4', action: 'exit-app' },
       ]
     },
     edit: {

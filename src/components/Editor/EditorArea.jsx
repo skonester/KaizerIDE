@@ -77,6 +77,8 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   // lines via decorations alone.
   const viewZonesRef = useRef([]);
   const pendingDiffs = useRef({});
+  // Queue for code edits that arrive before editor is ready
+  const pendingCodeEdits = useRef([]);
   const [editorContextMenu, setEditorContextMenu] = useState(null);
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -257,6 +259,162 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     }
   };
 
+  /**
+   * Apply code edit suggestion to the editor
+   */
+  const applyCodeEditToEditor = (suggestion) => {
+    const editor = editorRef.current;
+    if (!editor) {
+      console.error('Editor not available for applying code edit');
+      return false;
+    }
+
+    try {
+      const { filePath, oldCode, newCode, lineStart, lineEnd } = suggestion;
+      const model = editor.getModel();
+      
+      if (!model) {
+        console.error('Editor model not available');
+        return false;
+      }
+
+      // Get current content
+      const currentContent = model.getValue();
+      
+      // If we have line numbers, use precise replacement
+      if (lineStart && lineEnd) {
+        // Convert to 0-based line numbers for Monaco
+        const startLine = Math.max(1, lineStart);
+        const endLine = Math.max(1, lineEnd);
+        
+        // Get the range to replace
+        const startColumn = 1;
+        const endColumn = model.getLineMaxColumn(endLine);
+        
+        // Create edit operation
+        const range = {
+          startLineNumber: startLine,
+          startColumn: startColumn,
+          endLineNumber: endLine,
+          endColumn: endColumn
+        };
+        
+        // Apply the edit
+        editor.executeEdits('code-edit-suggestion', [
+          {
+            range,
+            text: newCode,
+            forceMoveMarkers: true
+          }
+        ]);
+        
+        // Move cursor to the end of the edit
+        const newEndLine = startLine + newCode.split('\n').length - 1;
+        const newEndColumn = model.getLineMaxColumn(newEndLine);
+        editor.setPosition({ lineNumber: newEndLine, column: newEndColumn });
+        
+        console.log('Applied code edit by line numbers:', { startLine, endLine });
+      } 
+      // Otherwise try to find and replace the old code
+      else if (oldCode) {
+        // Find the position of oldCode in the current content
+        const oldCodeIndex = currentContent.indexOf(oldCode);
+        
+        if (oldCodeIndex === -1) {
+          console.error('Could not find the specified code to replace');
+          return false;
+        }
+        
+        // Convert index to line/column
+        const position = model.getPositionAt(oldCodeIndex);
+        const endPosition = model.getPositionAt(oldCodeIndex + oldCode.length);
+        
+        // Create edit operation
+        const range = {
+          startLineNumber: position.lineNumber,
+          startColumn: position.column,
+          endLineNumber: endPosition.lineNumber,
+          endColumn: endPosition.column
+        };
+        
+        // Apply the edit
+        editor.executeEdits('code-edit-suggestion', [
+          {
+            range,
+            text: newCode,
+            forceMoveMarkers: true
+          }
+        ]);
+        
+        console.log('Applied code edit by content replacement');
+      }
+      // If only new code is provided, append it
+      else if (newCode) {
+        // Get the end of the file
+        const lineCount = model.getLineCount();
+        const lastLineLength = model.getLineLength(lineCount);
+        
+        // Create edit operation at the end
+        const range = {
+          startLineNumber: lineCount,
+          startColumn: lastLineLength + 1,
+          endLineNumber: lineCount,
+          endColumn: lastLineLength + 1
+        };
+        
+        // Add newline if needed
+        let textToInsert = newCode;
+        if (lastLineLength > 0) {
+          textToInsert = '\n' + newCode;
+        }
+        
+        // Apply the edit
+        editor.executeEdits('code-edit-suggestion', [
+          {
+            range,
+            text: textToInsert,
+            forceMoveMarkers: true
+          }
+        ]);
+        
+        console.log('Applied code edit by appending');
+      } else {
+        console.error('No valid edit content provided');
+        return false;
+      }
+
+      // Focus the editor after applying the edit
+      editor.focus();
+      
+      // Show success notification
+      const event = new CustomEvent('kaizer:show-toast', {
+        detail: {
+          type: 'success',
+          message: 'Code edit applied successfully',
+          duration: 3000
+        }
+      });
+      window.dispatchEvent(event);
+
+      return true;
+    } catch (error) {
+      console.error('Failed to apply code edit:', error);
+      
+      // Show error notification
+      const event = new CustomEvent('kaizer:show-toast', {
+        detail: {
+          type: 'error',
+          message: 'Failed to apply code edit',
+          description: error.message,
+          duration: 5000
+        }
+      });
+      window.dispatchEvent(event);
+      
+      return false;
+    }
+  };
+
   // Clear decorations + view-zones. Also forgets the pending diff for
   // the active tab so switching away & back doesn't re-apply it.
   const clearDecorations = () => {
@@ -321,6 +479,51 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     };
   }, [activeTab]);
 
+  // Listen for code edit events (always active, doesn't depend on activeTab)
+  useEffect(() => {
+    const handleApplyCodeEdit = (e) => {
+      console.log('[EditorArea] Received apply-code-edit event:', e.detail);
+      const { suggestion } = e.detail;
+      console.log('[EditorArea] Editor ref available:', !!editorRef.current);
+      console.log('[EditorArea] Editor model available:', !!editorRef.current?.getModel?.());
+      console.log('[EditorArea] Active tab:', activeTab);
+      console.log('[EditorArea] Suggestion file path:', suggestion?.filePath);
+      
+      if (!suggestion) {
+        console.error('[EditorArea] No suggestion provided in event');
+        return;
+      }
+      
+      // Check if editor is ready
+      if (editorRef.current && editorRef.current.getModel) {
+        console.log('[EditorArea] Editor ready, applying code edit...');
+        applyCodeEditToEditor(suggestion);
+      } else {
+        console.log('[EditorArea] Editor not ready yet, queuing edit');
+        pendingCodeEdits.current.push(suggestion);
+        
+        // Show notification to user
+        const event = new CustomEvent('kaizer:show-toast', {
+          detail: {
+            type: 'info',
+            message: 'Editor not ready',
+            description: 'Code edit will be applied when editor is ready',
+            duration: 3000
+          }
+        });
+        window.dispatchEvent(event);
+      }
+    };
+
+    console.log('[EditorArea] Registering apply-code-edit event listener');
+    window.addEventListener('kaizer:apply-code-edit', handleApplyCodeEdit);
+
+    return () => {
+      console.log('[EditorArea] Removing apply-code-edit event listener');
+      window.removeEventListener('kaizer:apply-code-edit', handleApplyCodeEdit);
+    };
+  }, []); // Empty dependency array - register once on mount
+
   // Listen for editor settings changes (including theme)
   useEffect(() => {
     const handleSettingsChanged = (e) => {
@@ -378,6 +581,24 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     // from a previous instance are now meaningless. Start from scratch.
     decorationsRef.current = [];
     viewZonesRef.current = [];
+
+    // Expose editor instance globally for debugging (development only)
+    if (process.env.NODE_ENV === 'development') {
+      window.monacoEditor = editor;
+      window.monacoInstance = monaco;
+      console.log('[EditorArea] Monaco editor exposed globally for debugging');
+    }
+
+    console.log('[EditorArea] Editor mounted, processing pending edits:', pendingCodeEdits.current.length);
+    
+    // Process any pending code edits that arrived before editor was ready
+    if (pendingCodeEdits.current.length > 0) {
+      console.log('[EditorArea] Applying', pendingCodeEdits.current.length, 'pending code edits');
+      pendingCodeEdits.current.forEach(suggestion => {
+        applyCodeEditToEditor(suggestion);
+      });
+      pendingCodeEdits.current = [];
+    }
 
     // If the AI wrote this file while Monaco was still mounting, the
     // file-written handler couldn't apply its decorations yet. Replay

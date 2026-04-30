@@ -15,13 +15,21 @@ import TypingIndicator from './TypingIndicator';
 import Composer from './Composer/Composer';
 import MessageActions from './MessageActions';
 import FileLink from './FileLink';
+import CodeEditSuggestion from './CodeEditSuggestion';
 import { FilesChangedProvider } from './FilesChangedContext';
 import ChatHistoryModal from './modals/ChatHistoryModal';
 import AddModelModal from './modals/AddModelModal';
 import { useChatStore } from '../../../lib/stores/chatStore';
 import { toast } from '../../../lib/stores/toastStore';
 import remarkFileLinks from '../../../lib/markdown/remarkFileLinks';
+import { 
+  parseCodeEditFromMessage, 
+  createSuggestionObject, 
+  hasCodeEditSuggestions,
+  applyCodeEdit 
+} from '../../../lib/editor/codeEditService';
 import './ChatPanel.css';
+import './CodeEditSuggestion.css';
 
 // Shared ReactMarkdown plugin list + component renderers. We inject
 // these into every place the chat renders assistant markdown so the
@@ -154,6 +162,10 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Code edit suggestions state
+  const [codeEditSuggestions, setCodeEditSuggestions] = useState([]);
+  const [pendingEdits, setPendingEdits] = useState({});
 
   // Link renderer that uses workspacePath to resolve relative links
   const markdownLinkRenderer = useCallback(({ node, href, children, ...props }) => {
@@ -596,6 +608,105 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
     }
   }, [messages, currentChatId, chatHistory, workspacePath, toolGroups]);
 
+  /**
+   * Process code edit suggestions from AI response
+   */
+  const processCodeEditSuggestions = useCallback((messageContent) => {
+    if (!messageContent || !hasCodeEditSuggestions(messageContent)) {
+      return;
+    }
+
+    // Try to parse code edit suggestions from the message
+    const suggestion = parseCodeEditFromMessage(
+      messageContent,
+      activeFile || workspacePath,
+      activeFile ? getLanguageFromPath(activeFile) : 'text'
+    );
+
+    if (suggestion) {
+      const suggestionObj = createSuggestionObject(suggestion, workspacePath);
+      setCodeEditSuggestions(prev => [...prev, suggestionObj]);
+      
+      // Show notification
+      toast.info('Code edit suggestion available', {
+        description: 'Click to review and apply the suggested changes',
+        duration: 5000
+      });
+    }
+  }, [activeFile, workspacePath]);
+
+  /**
+   * Apply a code edit suggestion to the editor
+   */
+  const handleApplyCodeEdit = useCallback(async (suggestion) => {
+    try {
+      console.log('[ChatPanel] Dispatching apply-code-edit event:', suggestion);
+      // Dispatch event to apply the edit to Monaco editor
+      const event = new CustomEvent('kaizer:apply-code-edit', {
+        detail: {
+          suggestion,
+          workspacePath
+        }
+      });
+      window.dispatchEvent(event);
+      console.log('[ChatPanel] Event dispatched');
+
+      // Mark suggestion as applied
+      setCodeEditSuggestions(prev => 
+        prev.map(s => s.id === suggestion.id ? { ...s, applied: true } : s)
+      );
+
+      toast.success('Code edit applied successfully');
+    } catch (error) {
+      console.error('Failed to apply code edit:', error);
+      toast.error('Failed to apply code edit', {
+        description: error.message
+      });
+      throw error;
+    }
+  }, [workspacePath]);
+
+  /**
+   * Handle approve of code edit suggestion
+   */
+  const handleApproveSuggestion = useCallback((suggestion) => {
+    console.log('Approved code edit suggestion:', suggestion);
+    // The actual application happens in the onApplyEdit callback
+  }, []);
+
+  /**
+   * Handle deny of code edit suggestion
+   */
+  const handleDenySuggestion = useCallback((suggestion) => {
+    console.log('Denied code edit suggestion:', suggestion);
+    // Remove the suggestion from the list
+    setCodeEditSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+    toast.info('Code edit suggestion dismissed');
+  }, []);
+
+  /**
+   * Get language from file path (helper function)
+   */
+  const getLanguageFromPath = useCallback((filePath) => {
+    if (!filePath) return 'text';
+    const ext = filePath.split('.').pop().toLowerCase();
+    const langMap = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'py': 'python',
+      'css': 'css',
+      'html': 'html',
+      'json': 'json',
+      'md': 'markdown',
+      'yml': 'yaml',
+      'yaml': 'yaml',
+      'xml': 'xml'
+    };
+    return langMap[ext] || 'text';
+  }, []);
+
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
 
@@ -826,6 +937,11 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           });
           
           saveCurrentChat();
+          
+          // Process code edit suggestions from the final message
+          if (streamingMsgRef.current?.content) {
+            processCodeEditSuggestions(streamingMsgRef.current.content);
+          }
         },
         signal: abortControllerRef.current.signal
       });
@@ -1823,6 +1939,31 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
                 onToggleGroupExpanded={handleToggleGroupExpanded}
                 onToggleRowExpanded={handleToggleRowExpanded}
               />
+              
+              {/* Code Edit Suggestions */}
+              {codeEditSuggestions.length > 0 && (
+                <div className="code-edit-suggestions-section">
+                  <div className="section-header">
+                    <Icon name="Edit" size={14} />
+                    <h3>Code Edit Suggestions</h3>
+                    <span className="badge">{codeEditSuggestions.length}</span>
+                  </div>
+                  {codeEditSuggestions.map((suggestion) => (
+                    <CodeEditSuggestion
+                      key={suggestion.id}
+                      suggestion={suggestion}
+                      onApprove={handleApproveSuggestion}
+                      onDeny={handleDenySuggestion}
+                      onApplyEdit={handleApplyCodeEdit}
+                      workspacePath={workspacePath}
+                      activeFile={activeFile}
+                      activeFileContent={activeFileContent}
+                      isStreaming={isStreaming}
+                    />
+                  ))}
+                </div>
+              )}
+              
               {streamingMsg && (
                 <div className="streaming-row">
                   {renderStreamingMessage(streamingMsg)}
