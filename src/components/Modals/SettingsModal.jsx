@@ -216,7 +216,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                     : localSettings.provider === 'google-gemini'
                       ? 'Google AI Studio / Gemini endpoint'
                       : localSettings.provider === 'openrouter'
-                        ? 'OpenRouter API endpoint'
+                        ? 'OpenRouter API endpoint (https://openrouter.ai/api/v1)'
                         : 'API endpoint for AI chat functionality'}
                 </span>
               </div>

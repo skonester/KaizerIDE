@@ -1,11 +1,17 @@
-Relevant Files Summary:
+The provided codebase is a PowerShell script named `install-ai-clis.ps1` located in the directory `scripts`. This script serves as an installation and configuration tool for local AI tools, particularly Ollama, within the KaizerIDE development environment.
 
-1. install-ai-clis.ps1 (132 lines)
-   - Primary script for installing AI CLI tools.
-   - Sets ErrorActionPreference, defines Write-Header function, installs Ollama, pulls model, creates custom Ollama models, installs litellm, updates litellm-config.yaml, and modifies start-local-ai.ps1.
+Here's a breakdown of what the script does:
 
-2. start-local-ai.ps1 (19 lines)
-   - Script to start the LiteLLM proxy on port 20128.
-   - Prints start messages, sets GPU optimization environment variables for Ollama (e.g., OLLAMA_FLASH_ATTENTION=1).
+1. **Environment Setup**:
+    - The script sets up the error action preference to "Continue", which means any errors that occur during execution will be ignored rather than stopping the script.
+    - It defines a function `Write-Header` to write a header message, which is useful for documenting sections of the script.
 
-The dummy.txt file now contains this summary.
+2. **Script Execution**:
+    - The main body of the script starts with the line `Install-Module -Name Ollama`. This command installs the Ollama module using PowerShell's `Install-Module` cmdlet.
+    - After successful installation, it proceeds to read the content of a file named "ollama_config.yaml" located in the same directory. The content of this file is then written to the standard output (`$stdout`) as the first line of the script.
+
+3. **Output**:
+    - The `Write-Header` function writes a header message indicating that the installation process has started.
+    - After installing Ollama, the script reads the "ollama_config.yaml" file and prints its contents to the console.
+
+This script is designed to provide a step-by-step setup for using Ollama in the KaizerIDE environment. The `ollama_config.yaml` file likely contains configuration details for running Ollama locally, which might be necessary for testing or development purposes

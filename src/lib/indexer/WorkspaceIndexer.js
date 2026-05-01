@@ -242,6 +242,7 @@ export class WorkspaceIndexer {
    */
   reset() {
     this.abort();
+    this.fileWatcher.stop();
     this.indexStore.clear();
     this.stateManager.reset();
     this.stateManager.setWorkspacePath(null);

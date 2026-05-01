@@ -401,6 +401,11 @@ ipcMain.handle('open-folder', async () => {
   return { canceled: false, path: result.filePaths[0] };
 });
 
+ipcMain.handle('show-save-dialog', async (event, options) => {
+  const result = await dialog.showSaveDialog(mainWindow, options);
+  return result;
+});
+
 ipcMain.handle('get-file-tree', async (event, dirPath) => {
   try {
     console.log(`[IPC] get-file-tree: ${dirPath}`);
@@ -618,6 +623,51 @@ ipcMain.handle('get-app-data-path', async () => {
 });
 
 // Workspace persistence
+ipcMain.handle('save-workspace-file', async (event, workspaceData) => {
+  try {
+    const activeWindow = mainWindow || welcomeWindow;
+    const result = await dialog.showSaveDialog(activeWindow, {
+      title: 'Save Workspace As',
+      defaultPath: path.join(os.homedir(), `${workspaceData.name || 'workspace'}.kaizer`),
+      filters: [
+        { name: 'Kaizer Workspace', extensions: ['kaizer', 'json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (!result.canceled && result.filePath) {
+      fs.writeFileSync(result.filePath, JSON.stringify(workspaceData, null, 2), 'utf8');
+      return { success: true, filePath: result.filePath };
+    }
+    return { success: false, canceled: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('open-workspace-file', async () => {
+  try {
+    const activeWindow = mainWindow || welcomeWindow;
+    const result = await dialog.showOpenDialog(activeWindow, {
+      title: 'Open Workspace',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Kaizer Workspace', extensions: ['kaizer', 'json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      const content = fs.readFileSync(result.filePaths[0], 'utf8');
+      const workspaceData = JSON.parse(content);
+      return { success: true, workspaceData, filePath: result.filePaths[0] };
+    }
+    return { success: false, canceled: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('save-workspace-path', async (event, workspacePath) => {
   try {
     const userDataPath = app.getPath('userData');
@@ -1324,7 +1374,33 @@ ipcMain.handle('get-recent-workspaces', async () => {
     const recentData = JSON.parse(data);
     return { success: true, workspaces: recentData.workspaces || [] };
   } catch (error) {
-    return { success: false, workspaces: [], error: error.message };
+    return { success: false, error: error.message };
+  }
+});
+
+// Remove a workspace from the recent list
+ipcMain.handle('remove-recent-workspace', async (event, workspacePath) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const recentPath = path.join(userDataPath, 'recent-workspaces.json');
+    
+    if (!fs.existsSync(recentPath)) {
+      return { success: true };
+    }
+    
+    const data = fs.readFileSync(recentPath, 'utf8');
+    const recentData = JSON.parse(data);
+    
+    // Filter out the workspace to remove
+    recentData.workspaces = (recentData.workspaces || []).filter(w => w.path !== workspacePath);
+    
+    // Save updated list
+    fs.writeFileSync(recentPath, JSON.stringify(recentData, null, 2), 'utf8');
+    
+    return { success: true, workspaces: recentData.workspaces };
+  } catch (error) {
+    console.error('[Main] Failed to remove recent workspace:', error);
+    return { success: false, error: error.message };
   }
 });
 
@@ -1441,24 +1517,37 @@ ipcMain.handle('open-workspace-from-welcome-with-ssh', async () => {
 // Show welcome screen (switch from main window)
 ipcMain.handle('show-welcome', async () => {
   try {
+    console.log('[Main] show-welcome requested');
+    
+    // Stop file watcher
+    stopWatching();
+
     // Clear current workspace path so it doesn't auto-load next time
-    const userDataPath = app.getPath('userData');
-    const configPath = path.join(userDataPath, 'workspace-config.json');
-    if (fs.existsSync(configPath)) {
-      fs.unlinkSync(configPath);
+    // We write null instead of unlinking to be safer against file locks
+    try {
+      const userDataPath = app.getPath('userData');
+      const configPath = path.join(userDataPath, 'workspace-config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ workspacePath: null }), 'utf8');
+      console.log('[Main] Workspace config cleared');
+    } catch (err) {
+      console.warn('[Main] Failed to clear workspace config:', err.message);
     }
 
-    // Close main window
+    // Create welcome window FIRST to avoid app.quit() being triggered
+    // when all windows are closed on Windows/Linux
+    createWelcomeWindow();
+    console.log('[Main] Welcome window created');
+
+    // Close main window after creating the welcome window
     if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log('[Main] Closing main window');
       mainWindow.close();
       mainWindow = null;
     }
     
-    // Create welcome window
-    createWelcomeWindow();
-    
     return { success: true };
   } catch (error) {
+    console.error('[Main] show-welcome error:', error);
     return { success: false, error: error.message };
   }
 });

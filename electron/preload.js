@@ -20,10 +20,13 @@ contextBridge.exposeInMainWorld('electron', {
   createFolder: (folderPath) => ipcRenderer.invoke('create-folder', folderPath),
   renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  saveWorkspaceFile: (workspaceData) => ipcRenderer.invoke('save-workspace-file', workspaceData),
+  openWorkspaceFile: () => ipcRenderer.invoke('open-workspace-file'),
   saveWorkspacePath: (workspacePath) => ipcRenderer.invoke('save-workspace-path', workspacePath),
   loadWorkspacePath: () => ipcRenderer.invoke('load-workspace-path'),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   getFileOutline: (filePath) => ipcRenderer.invoke('get-file-outline', filePath),
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
   
   // Context menu integration - get path passed from command line
   getOpenPath: () => ipcRenderer.invoke('get-open-path'),
@@ -60,6 +63,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Welcome screen APIs
   getUsername: () => ipcRenderer.invoke('get-username'),
   getRecentWorkspaces: () => ipcRenderer.invoke('get-recent-workspaces'),
+  removeRecentWorkspace: (workspacePath) => ipcRenderer.invoke('remove-recent-workspace', workspacePath),
   addRecentWorkspace: (workspacePath) => ipcRenderer.invoke('add-recent-workspace', workspacePath),
   openWorkspaceFromWelcome: (workspacePath) => ipcRenderer.invoke('open-workspace-from-welcome', workspacePath),
   openWorkspaceFromWelcomeWithSSH: () => ipcRenderer.invoke('open-workspace-from-welcome-with-ssh'),

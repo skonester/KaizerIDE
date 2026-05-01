@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '../../lib/stores/toastStore';
 import './WelcomeScreen.css';
 
 function WelcomeScreen() {
@@ -56,6 +57,17 @@ function WelcomeScreen() {
   const handleOpenRecent = async (workspacePath) => {
     if (!window.electron?.openWorkspaceFromWelcome) return;
     await window.electron.openWorkspaceFromWelcome(workspacePath);
+  };
+
+  const handleRemoveRecent = async (e, workspacePath) => {
+    e.stopPropagation(); // Prevent opening the workspace
+    if (!window.electron?.removeRecentWorkspace) return;
+    
+    const result = await window.electron.removeRecentWorkspace(workspacePath);
+    if (result.success) {
+      setRecentWorkspaces(result.workspaces || []);
+      toast.success('Removed from recents');
+    }
   };
 
   const handleOpenSSH = async () => {
@@ -140,6 +152,16 @@ function WelcomeScreen() {
                       <div className="recent-name">{workspace.name}</div>
                       <div className="recent-path">{workspace.path}</div>
                     </div>
+                    <button 
+                      className="btn-remove-recent" 
+                      onClick={(e) => handleRemoveRecent(e, workspace.path)}
+                      title="Remove from recents"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
                   </div>
                 ))}
               </div>

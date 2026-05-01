@@ -51,6 +51,7 @@
   "build": {
     "appId": "dev.kaizer.ide",
     "productName": "KaizerIDE",
+    "icon": "docs/images/logo.png",
     "npmRebuild": false,
     "directories": {
       "output": "release"
@@ -60,6 +61,8 @@
       "electron/**/*",
       "package.json",
       "scripts/**/*",
+      "docs/images/logo.png",
+      "docs/images/logo.ico",
       "!src/**/*",
       "!.github/**/*",
       "!*.md",
@@ -75,6 +78,7 @@
           ]
         }
       ],
+      "icon": "docs/images/logo.png",
       "fileAssociations": [
         {
           "ext": [

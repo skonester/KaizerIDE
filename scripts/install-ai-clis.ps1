@@ -36,18 +36,23 @@ if (!(Get-Command ollama -ErrorAction SilentlyContinue)) {
 }
 
 Write-Info "Ensuring core coding models are available..."
-ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:1.5b
 
 Write-Info "Creating model aliases for Droid and Pi with GPU optimization..."
 $modelfilePath = Join-Path $PSScriptRoot "Modelfile-temp"
 $modelfileContent = @"
-FROM qwen2.5-coder:7b
+FROM qwen2.5-coder:1.5b
 PARAMETER num_gpu 99
 PARAMETER num_ctx 8192
 "@
 $modelfileContent | Out-File -FilePath $modelfilePath -Encoding ascii
 ollama create droid/droid-local -f $modelfilePath
 ollama create pi/pi-local -f $modelfilePath
+ollama create openclaw/openclaw-local -f $modelfilePath
+ollama create claude/claude-local -f $modelfilePath
+ollama create codex/codex-cli -f $modelfilePath
+ollama create opencode/opencode-ai -f $modelfilePath
+ollama create kaizer/qwen-coder -f $modelfilePath
 Remove-Item $modelfilePath
 
 # --- LiteLLM Setup ---
@@ -67,31 +72,31 @@ $configContent = @"
 model_list:
   - model_name: qwen/qwen-2.5-coder-32b
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: opencode/opencode-ai
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: codex/codex-cli
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: openclaw/openclaw-local
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: claude/claude-local
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: droid/droid-local
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: pi/pi-local
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: qwen/*
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
   - model_name: "*"
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:1.5b
 litellm_settings:
   drop_params: true
 "@

@@ -58,6 +58,8 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
   
   const headers = {
     'Content-Type': 'application/json',
+    'HTTP-Referer': 'https://kaizer.ide', // Required for OpenRouter
+    'X-Title': 'KaizerIDE',             // Required for OpenRouter
     'anthropic-beta': 'interleaved-thinking-2025-05-14'
   };
   
@@ -76,7 +78,7 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
   let finalModel = selectedModel.id;
   let finalEndpoint = endpoint;
   
-  const scriptedPrefixes = ['qwen/', 'opencode/', 'codex/', 'openclaw/', 'claude/', 'droid/', 'pi/'];
+  const scriptedPrefixes = ['qwen/', 'opencode/', 'codex/', 'openclaw/', 'claude/', 'droid/', 'pi/', 'kaizer/'];
   if (scriptedPrefixes.some(p => finalModel.startsWith(p))) {
     // If it's a scripted model but the user hasn't explicitly changed the endpoint from the default LiteLLM port,
     // then we force direct Ollama connection as it's the most stable path for these specific models.
@@ -85,15 +87,15 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
     }
     
     // Map to a known coder model if using the scripted prefix, but allow for variations.
-    // We prioritize qwen2.5-coder:7b as the high-performance base for these agents.
-    if (finalModel.startsWith('droid/') || finalModel.startsWith('pi/') || finalModel.startsWith('claude/') || finalModel.startsWith('openclaw/')) {
-      finalModel = 'qwen2.5-coder:7b';
+    if (finalModel === 'kaizer/qwen-coder') {
+        // Keep the exact name for the GPU-forced model
+    } else if (finalModel.startsWith('droid/') || finalModel.startsWith('pi/') || finalModel.startsWith('claude/') || finalModel.startsWith('openclaw/')) {
+      finalModel = 'qwen2.5-coder:1.5b';
     } else if (!finalModel.toLowerCase().includes('coder')) {
-      finalModel = 'qwen2.5-coder:7b';
+      finalModel = 'qwen2.5-coder:1.5b';
     } else {
-      // Strip the prefix for the actual Ollama call (e.g. qwen/qwen-2.5-coder-32b -> qwen2.5-coder:7b)
-      // Actually, we want to force the known stable model for all these scripted agents
-      finalModel = 'qwen2.5-coder:7b';
+      // Strip the prefix for the actual Ollama call
+      finalModel = 'qwen2.5-coder:1.5b';
     }
   }
 

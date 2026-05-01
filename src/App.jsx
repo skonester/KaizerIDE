@@ -8,6 +8,7 @@ import StatusBar from './components/Common/StatusBar';
 import ErrorToast from './components/Common/ErrorToast';
 import Toaster from './components/Common/Toaster';
 import { indexer } from './lib/indexer';
+import { toast } from './lib/stores/toastStore';
 import './App.css';
 
 // Expose indexer globally for debugging
@@ -27,9 +28,11 @@ const DEFAULT_SETTINGS = {
   provider: "openai-compatible",
   endpoint: "http://localhost:20128/v1",
   apiKey: "",
-  selectedModel: { id: 'gemini/gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Fastest)', maxOutputTokens: 16000 },
+  selectedModel: { id: 'kaizer/qwen-coder', name: 'Qwen 2.5 Coder 1.5B (GPU Forced)', maxOutputTokens: 16000 },
   models: [
-    // Scripted Models
+    // GPU Forced Local Models
+    { id: 'kaizer/qwen-coder', name: 'Qwen 2.5 Coder 1.5B (GPU Forced)', maxOutputTokens: 16000 },
+    { id: 'qwen/qwen-2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (Ollama)', maxOutputTokens: 16000 },
     { id: 'qwen/qwen-2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Ollama)', maxOutputTokens: 16000 },
     { id: 'opencode/opencode-ai', name: 'OpenCode AI (Ollama)', maxOutputTokens: 16000 },
     { id: 'codex/codex-cli', name: 'Codex CLI (Ollama)', maxOutputTokens: 16000 },
@@ -39,6 +42,14 @@ const DEFAULT_SETTINGS = {
     { id: 'pi/pi-local', name: 'Pi (Ollama)', maxOutputTokens: 16000 },
     { id: 'letta/letta-local', name: 'Letta (Local)', maxOutputTokens: 16000 },
     { id: 'mistral/mistral-vibe', name: 'Mistral Vibe', maxOutputTokens: 16000 },
+    
+    // OpenRouter Models (Cloud)
+    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)', maxOutputTokens: 16000 },
+    { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus (OpenRouter)', maxOutputTokens: 16000 },
+    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)', maxOutputTokens: 16000 },
+    { id: 'openai/gpt-4o', name: 'GPT-4o (OpenRouter)', maxOutputTokens: 16000 },
+    { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3 (OpenRouter)', maxOutputTokens: 16000 },
+    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)', maxOutputTokens: 16000 },
     
     // Gemini Models
     { id: "gemini/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash", maxOutputTokens: 16000 },
@@ -426,6 +437,9 @@ function App() {
         // Ctrl+Shift+L → new chat
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('kaizer:new-chat'));
+      } else if (e.shiftKey && e.key === 'Delete') {
+        e.preventDefault();
+        handleMenuAction('delete-file');
       }
     };
 
@@ -691,19 +705,47 @@ function App() {
 
   const saveActiveTab = async () => {
     if (!activeTabPath) return;
+    const tab = tabs.find(t => t.path === activeTabPath);
+    if (!tab) return;
 
-    const activeTab = tabs.find(tab => tab.path === activeTabPath);
-    if (!activeTab || !activeTab.dirty) return;
-
-    const result = await window.electron.writeFile(activeTabPath, activeTab.content);
+    let targetPath = tab.path;
     
+    // If it's an untitled file, we need to ask for a save location
+    if (tab.isUntitled) {
+      console.log('[App] Saving untitled file, opening save dialog...');
+      const result = await window.electron.showSaveDialog({
+        title: 'Save File',
+        defaultPath: workspacePath ? `${workspacePath}/untitled.txt` : 'untitled.txt',
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      
+      if (result.canceled || !result.filePath) {
+        console.log('[App] Save canceled');
+        return;
+      }
+      
+      targetPath = result.filePath;
+    }
+
+    console.log('[App] Saving file to:', targetPath);
+    const result = await window.electron.writeFile(targetPath, tab.content);
     if (result.success) {
-      setTabs(prev => prev.map(tab => {
-        if (tab.path === activeTabPath) {
-          return { ...tab, dirty: false };
-        }
-        return tab;
-      }));
+      setTabs(prev => prev.map(t => 
+        t.path === activeTabPath 
+          ? { ...t, path: targetPath, name: targetPath.split(/[\\/]/).pop(), dirty: false, isUntitled: false } 
+          : t
+      ));
+      if (tab.isUntitled) {
+        setActiveTabPath(targetPath);
+      }
+      toast.success(`Saved: ${targetPath.split(/[\\/]/).pop()}`);
+      
+      // Refresh tree if in workspace
+      if (workspacePath && targetPath.startsWith(workspacePath)) {
+        window.dispatchEvent(new CustomEvent('kaizer:tree-refresh'));
+      }
     } else {
       setErrorMessage(`Failed to save file: ${result.error}`);
     }
@@ -804,28 +846,19 @@ function App() {
 
   const handleMenuAction = async (action) => {
     switch (action) {
-      case 'new-file':
-        if (workspacePath) {
-          const fileName = prompt('Enter file name:');
-          if (fileName) {
-            const newFilePath = `${workspacePath}\\${fileName}`;
-            const result = await window.electron.writeFile(newFilePath, '');
-            if (result.success) {
-              handleFileOpen(newFilePath);
-              // Refresh file tree
-              window.electron.getFileTree(workspacePath).then(res => {
-                if (res.success) {
-                  window.dispatchEvent(new CustomEvent('kaizer:tree-refresh', { detail: res.tree }));
-                }
-              });
-            } else {
-              setErrorMessage(`Failed to create file: ${result.error}`);
-            }
-          }
-        } else {
-          setErrorMessage('Please open a folder first');
-        }
+      case 'new-file': {
+        const untitledId = `untitled-${Date.now()}`;
+        const newTab = {
+          path: untitledId,
+          name: 'Untitled',
+          content: '',
+          dirty: true,
+          isUntitled: true
+        };
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabPath(untitledId);
         break;
+      }
       
       case 'open-folder':
         handleOpenFolder();
@@ -837,7 +870,7 @@ function App() {
       
       case 'save-all':
         for (const tab of tabs) {
-          if (tab.dirty) {
+          if (tab.dirty && !tab.isUntitled) {
             await window.electron.writeFile(tab.path, tab.content);
           }
         }
@@ -860,6 +893,8 @@ function App() {
         setTabs([]);
         setActiveTabPath(null);
         indexer.reset();
+        // Explicitly clear workspace path on disk as well
+        window.electron.saveWorkspacePath(null);
         window.electron.showWelcome();
         break;
       
@@ -869,48 +904,75 @@ function App() {
         setActiveTabPath(null);
         break;
       
-      case 'remove-file':
+      case 'delete-file':
         if (activeTabPath) {
-          const confirm = window.confirm(`Are you sure you want to remove "${activeTabPath}" from workspace?\n\nThis will close the tab but keep the file on disk.`);
+          const confirm = window.confirm(`Are you sure you want to PERMANENTLY delete "${activeTabPath}"?\n\nThis action cannot be undone.`);
           if (confirm) {
-            handleTabClose(activeTabPath);
+            console.log('[App] Deleting file:', activeTabPath);
+            const result = await window.electron.deleteFile(activeTabPath);
+            if (result.success) {
+              handleTabClose(activeTabPath);
+              // The FileExplorer will refresh via the file-system-changed event
+            } else {
+              setErrorMessage(`Failed to delete file: ${result.error}`);
+            }
           }
         } else {
-          setErrorMessage('No file selected to remove');
+          setErrorMessage('No file selected to delete');
         }
         break;
       
       case 'save-workspace':
         if (workspacePath) {
-          const workspaceName = prompt('Enter workspace name:', 'My Workspace');
-          if (workspaceName) {
-            const workspaceData = {
-              name: workspaceName,
-              path: workspacePath,
-              tabs: tabs.map(tab => ({ path: tab.path, content: tab.content })),
-              timestamp: Date.now()
-            };
-            // Save workspace to localStorage for now
-            const workspaces = JSON.parse(localStorage.getItem('kaizer-workspaces') || '[]');
-            workspaces.push(workspaceData);
-            localStorage.setItem('kaizer-workspaces', JSON.stringify(workspaces));
+          const folderName = workspacePath.split(/[\\\/]/).pop() || 'Project';
+          const workspaceData = {
+            name: folderName,
+            path: workspacePath,
+            tabs: tabs.map(tab => ({ path: tab.path })), // Only save paths
+            timestamp: Date.now()
+          };
+          
+          console.log('[App] Saving workspace to file...');
+          const result = await window.electron.saveWorkspaceFile(workspaceData);
             
-            // Show success message
-            const event = new CustomEvent('kaizer:show-toast', {
-              detail: {
-                type: 'success',
-                message: 'Workspace saved',
-                description: `Workspace "${workspaceName}" saved successfully`,
-                duration: 3000
-              }
-            });
-            window.dispatchEvent(event);
-          }
+            if (result.success) {
+              toast.success(`Workspace saved to: ${result.filePath}`);
+            } else if (result.error) {
+              toast.error(`Failed to save workspace: ${result.error}`);
+              setErrorMessage(`Failed to save workspace: ${result.error}`);
+            }
         } else {
-          setErrorMessage('No workspace open to save');
+          toast.error('You must open a folder first before saving it as a workspace.');
         }
         break;
       
+      case 'open-workspace':
+        console.log('[App] Opening workspace from file...');
+        const openResult = await window.electron.openWorkspaceFile();
+        if (openResult.success && openResult.workspaceData) {
+          const { path: wsPath, tabs: savedTabs } = openResult.workspaceData;
+          console.log('[App] Loading workspace:', wsPath);
+          
+          setWorkspacePath(wsPath);
+          await window.electron.saveWorkspacePath(wsPath);
+          
+          // Clear current tabs before loading new ones
+          setTabs([]);
+          
+          // Open tabs
+          if (savedTabs && savedTabs.length > 0) {
+            for (const tab of savedTabs) {
+              await handleFileOpen(tab.path);
+            }
+          }
+          
+          toast.success(`Loaded workspace: ${openResult.filePath}`);
+        } else if (openResult.error) {
+          toast.error(`Failed to load workspace: ${openResult.error}`);
+          setErrorMessage(`Failed to load workspace: ${openResult.error}`);
+        }
+        break;
+
       case 'close-session':
         console.log('[App] Closing session');
         // Clear all state
@@ -920,6 +982,8 @@ function App() {
         setSidebarVisible(true);
         setTerminalVisible(false);
         indexer.reset();
+        // Explicitly clear workspace path on disk
+        window.electron.saveWorkspacePath(null);
         // Clear chat history for this session
         localStorage.removeItem('kaizer-current-chat');
         // Show welcome screen
@@ -1083,6 +1147,8 @@ function App() {
                 shortcut: 'Ctrl+N', run: () => handleMenuAction('new-file') },
               { id: 'file.openFolder', group: 'File', title: 'Open Folder…',
                 shortcut: 'Ctrl+K Ctrl+O', run: () => handleMenuAction('open-folder') },
+              { id: 'file.openWorkspace', group: 'File', title: 'Open Workspace…',
+                run: () => handleMenuAction('open-workspace') },
               { id: 'file.save', group: 'File', title: 'Save',
                 shortcut: 'Ctrl+S', run: () => handleMenuAction('save-file') },
               { id: 'file.saveAll', group: 'File', title: 'Save All',
@@ -1091,8 +1157,8 @@ function App() {
                 shortcut: 'Ctrl+W', run: () => handleMenuAction('close-tab') },
               { id: 'file.closeAllTabs', group: 'File', title: 'Close All Tabs',
                 run: () => handleMenuAction('close-all-tabs') },
-              { id: 'file.removeFile', group: 'File', title: 'Remove File from Workspace',
-                run: () => handleMenuAction('remove-file') },
+              { id: 'file.deleteFile', group: 'File', title: 'Delete File',
+                shortcut: 'Shift+Delete', run: () => handleMenuAction('delete-file') },
               { id: 'file.saveWorkspace', group: 'File', title: 'Save Workspace As…',
                 run: () => handleMenuAction('save-workspace') },
               { id: 'file.closeFolder', group: 'File', title: 'Close Folder',

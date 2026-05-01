@@ -32,6 +32,7 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
       items: [
         { label: 'New File', shortcut: 'Ctrl+N', action: 'new-file' },
         { label: 'Open Folder...', shortcut: 'Ctrl+O', action: 'open-folder' },
+        { label: 'Open Workspace...', action: 'open-workspace' },
         { type: 'separator' },
         { label: 'Save', shortcut: 'Ctrl+S', action: 'save-file' },
         { label: 'Save All', shortcut: 'Ctrl+K S', action: 'save-all' },
@@ -39,7 +40,7 @@ function MenuBar({ onMenuAction, showOnlyHelp = false }) {
         { type: 'separator' },
         { label: 'Close Editor', shortcut: 'Ctrl+W', action: 'close-tab' },
         { label: 'Close All Editors', action: 'close-all-tabs' },
-        { label: 'Remove File from Workspace', action: 'remove-file' },
+        { label: 'Delete File', shortcut: 'Shift+Delete', action: 'delete-file' },
         { type: 'separator' },
         { label: 'Close Folder', action: 'close-folder' },
         { label: 'Close Session', action: 'close-session' },
