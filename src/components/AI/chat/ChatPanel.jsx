@@ -37,6 +37,34 @@ import './CodeEditSuggestion.css';
 // previews.
 const CHAT_REMARK_PLUGINS = [remarkGfm, remarkFileLinks];
 
+function parseToolCallJson(content) {
+  const raw = (content || '').trim().replace(/^```(?:json)?\s*|\s*```$/gi, '');
+  if (!raw.startsWith('{') || !raw.endsWith('}')) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    try {
+      return JSON.parse(raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\'));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function isRawToolCallContent(content, toolName) {
+  const parsed = parseToolCallJson(content);
+  if (!parsed || Array.isArray(parsed)) return false;
+
+  const parsedName =
+    parsed.name ||
+    parsed.tool ||
+    parsed.tool_name ||
+    parsed.function?.name;
+
+  return parsedName === toolName;
+}
+
 
 
 /**
@@ -837,6 +865,15 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           }
         },
         onToolCall: ({ id, name, args }) => {
+          if (streamingMsgRef.current && isRawToolCallContent(streamingMsgRef.current.content, name)) {
+            streamingMsgRef.current.content = '';
+            streamingMsgRef.current.contentSegments = [''];
+            updateStreaming({
+              content: '',
+              contentSegments: ['']
+            });
+          }
+
           // Add tool to current turn's group
           setToolGroups(prev => {
             const group = prev[turnId];
@@ -887,6 +924,7 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
         onDone: () => {
           clearTimeout(streamingUpdateTimer.current);
           streamingUpdateTimer.current = null;
+          const finalStreamingContent = streamingMsgRef.current?.content || '';
           
           // Commit streaming message to messages (only if exists)
           if (streamingMsgRef.current) {
@@ -939,8 +977,8 @@ function ChatPanel({ workspacePath, activeFile, activeFileContent, settings, onO
           saveCurrentChat();
           
           // Process code edit suggestions from the final message
-          if (streamingMsgRef.current?.content) {
-            processCodeEditSuggestions(streamingMsgRef.current.content);
+          if (finalStreamingContent) {
+            processCodeEditSuggestions(finalStreamingContent);
           }
         },
         signal: abortControllerRef.current.signal

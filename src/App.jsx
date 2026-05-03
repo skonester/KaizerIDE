@@ -9,6 +9,14 @@ import ErrorToast from './components/Common/ErrorToast';
 import Toaster from './components/Common/Toaster';
 import { indexer } from './lib/indexer';
 import { toast } from './lib/stores/toastStore';
+import {
+  DEFAULT_MODEL_CATALOG_URL,
+  DEFAULT_MODELS,
+  OLLAMA_ENDPOINT,
+  getModelEndpoint,
+  getModelProvider,
+  mergeModels
+} from './lib/ai/modelCatalog';
 import './App.css';
 
 // Expose indexer globally for debugging
@@ -25,61 +33,12 @@ const RemoteConnectionModal = lazy(() => import('./components/Modals/RemoteConne
 const CommandPalette = lazy(() => import('./components/Common/CommandPalette'));
 
 const DEFAULT_SETTINGS = {
-  provider: "openai-compatible",
-  endpoint: "http://localhost:20128/v1",
+  provider: "ollama",
+  endpoint: OLLAMA_ENDPOINT,
   apiKey: "",
-  selectedModel: { id: 'kaizer/qwen-coder', name: 'Qwen 2.5 Coder 1.5B (GPU Forced)', maxOutputTokens: 16000 },
-  models: [
-    // GPU Forced Local Models
-    { id: 'kaizer/qwen-coder', name: 'Qwen 2.5 Coder 1.5B (GPU Forced)', maxOutputTokens: 16000 },
-    { id: 'qwen/qwen-2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (Ollama)', maxOutputTokens: 16000 },
-    { id: 'qwen/qwen-2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Ollama)', maxOutputTokens: 16000 },
-    { id: 'opencode/opencode-ai', name: 'OpenCode AI (Ollama)', maxOutputTokens: 16000 },
-    { id: 'codex/codex-cli', name: 'Codex CLI (Ollama)', maxOutputTokens: 16000 },
-    { id: 'openclaw/openclaw-local', name: 'OpenClaw (Ollama)', maxOutputTokens: 16000 },
-    { id: 'claude/claude-local', name: 'Claude Local (Ollama)', maxOutputTokens: 16000 },
-    { id: 'droid/droid-local', name: 'Droid (Ollama)', maxOutputTokens: 16000 },
-    { id: 'pi/pi-local', name: 'Pi (Ollama)', maxOutputTokens: 16000 },
-    { id: 'letta/letta-local', name: 'Letta (Local)', maxOutputTokens: 16000 },
-    { id: 'mistral/mistral-vibe', name: 'Mistral Vibe', maxOutputTokens: 16000 },
-    
-    // OpenRouter Models (Cloud)
-    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)', maxOutputTokens: 16000 },
-    { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus (OpenRouter)', maxOutputTokens: 16000 },
-    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)', maxOutputTokens: 16000 },
-    { id: 'openai/gpt-4o', name: 'GPT-4o (OpenRouter)', maxOutputTokens: 16000 },
-    { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3 (OpenRouter)', maxOutputTokens: 16000 },
-    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)', maxOutputTokens: 16000 },
-    
-    // Gemini Models
-    { id: "gemini/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash", maxOutputTokens: 16000 },
-    { id: "gemini/gemini-1.5-pro", name: "Gemini 1.5 Pro", maxOutputTokens: 16000 },
-    { id: "gemini/gemini-1.5-flash", name: "Gemini 1.5 Flash", maxOutputTokens: 16000 },
-    
-    // Anthropic Models
-    { id: "anthropic/claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet", maxOutputTokens: 16000 },
-    { id: "anthropic/claude-3-opus-20240229", name: "Claude 3 Opus", maxOutputTokens: 16000 },
-    { id: "anthropic/claude-3-haiku-20240307", name: "Claude 3 Haiku", maxOutputTokens: 16000 },
-    
-    // OpenAI Models
-    { id: "openai/gpt-4o", name: "GPT-4o", maxOutputTokens: 16000 },
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", maxOutputTokens: 16000 },
-    { id: "openai/o1-preview", name: "OpenAI o1 Preview", maxOutputTokens: 16000 },
-    
-    // Qwen Models
-    { id: "qw/qwen-2.5-coder-32b-instruct", name: "Qwen 2.5 Coder 32B", maxOutputTokens: 16000 },
-    { id: "qw/qwen-2.5-72b-instruct", name: "Qwen 2.5 72B", maxOutputTokens: 16000 },
-    
-    // Mistral Models
-    { id: "mistral/mistral-large-latest", name: "Mistral Large", maxOutputTokens: 16000 },
-    { id: "mistral/codestral-latest", name: "Codestral", maxOutputTokens: 16000 },
-    
-    // Specialized & Local Models
-    { id: "opencode/opencode-2.1", name: "OpenCode 2.1", maxOutputTokens: 16000 },
-    { id: "letta/letta-memory-1", name: "Letta Memory", maxOutputTokens: 16000 },
-    { id: "ds/deepseek-chat-v3", name: "DeepSeek V3", maxOutputTokens: 16000 },
-    { id: "openrouter/auto", name: "OpenRouter Auto", maxOutputTokens: 16000 }
-  ],
+  selectedModel: DEFAULT_MODELS[0],
+  models: DEFAULT_MODELS,
+  modelCatalogUrl: DEFAULT_MODEL_CATALOG_URL,
   systemPrompts: {}
 };
 
@@ -109,14 +68,7 @@ function App() {
     
     const parsed = JSON.parse(saved);
     // Merge default models into saved models, avoiding duplicates by ID
-    const savedModelIds = new Set(parsed.models.map(m => m.id));
-    const newModels = [...parsed.models];
-    
-    DEFAULT_SETTINGS.models.forEach(m => {
-      if (!savedModelIds.has(m.id)) {
-        newModels.push(m);
-      }
-    });
+    const newModels = mergeModels(DEFAULT_SETTINGS.models, parsed.models);
     
     // Get the API key for the current provider from providerKeys
     const currentProvider = parsed.provider || DEFAULT_SETTINGS.provider;
@@ -125,6 +77,7 @@ function App() {
     return { 
       ...parsed, 
       models: newModels,
+      modelCatalogUrl: parsed.modelCatalogUrl ?? DEFAULT_SETTINGS.modelCatalogUrl,
       apiKey: apiKey
     };
   });
@@ -286,14 +239,6 @@ function App() {
       if (result.success && result.workspacePath) {
         console.log('[App] Setting workspacePath to:', result.workspacePath);
         setWorkspacePath(result.workspacePath);
-        
-        // Auto-open AI installation script if it exists in the workspace
-        const installScriptPath = `${result.workspacePath}\\scripts\\install-ai-clis.ps1`;
-        window.electron.getFileInfo(installScriptPath).then(info => {
-          if (info && !info.isDirectory && info.success !== false) {
-            handleFileOpen(installScriptPath);
-          }
-        });
       } else {
         console.log('[App] No workspace path found - you need to open a folder via File → Open Folder');
       }
@@ -444,7 +389,16 @@ function App() {
     };
 
     const handleFileWritten = (event) => {
-      const { path, type, content, originalContent, oldContent, newContent } = event.detail;
+      const {
+        path,
+        type,
+        content,
+        originalContent,
+        oldContent,
+        newContent,
+        applyToOpenBuffer = false,
+        showDiff = true
+      } = event.detail;
       
       // Store AI file changes globally for diff highlighting when file is opened later
       const normalizedPath = normalizePath(path);
@@ -471,15 +425,36 @@ function App() {
       const previewTab = tabs.find(t => t.path === `${normalizedPath}:preview`);
       
       if (tab) {
-        // Update regular tab with diff view
-        // Use the tab's existing originalContent if it already has a diff, otherwise use current content
+        const nextContent = newContent || content || '';
+        // Agent writes should make the Monaco tab reflect the actual file
+        // immediately and remain editable. Diff metadata is still stored in
+        // aiFileChanges for later review, but the working buffer is no
+        // longer locked in read-only diff mode.
+        if (applyToOpenBuffer || showDiff === false) {
+          setTabs(prev => prev.map(t =>
+            t.path === normalizedPath ? {
+              ...t,
+              content: nextContent,
+              newContent: null,
+              dirty: false,
+              showDiff: false,
+              changeType: type,
+              originalContent: nextContent
+            } : t
+          ));
+          setActiveTabPath(normalizedPath);
+          return;
+        }
+
+        // Update regular tab with diff view when explicitly requested.
+        // Use the tab's existing originalContent if it already has a diff, otherwise use current content.
         const tabOriginalContent = tab.showDiff ? tab.originalContent : tab.content;
         
         setTabs(prev => prev.map(t => 
           t.path === normalizedPath ? { 
             ...t, 
             content: tabOriginalContent, // Keep original content for diff
-            newContent: newContent || content, // New content from AI
+            newContent: nextContent, // New content from AI
             dirty: false,
             showDiff: true,
             changeType: type,
@@ -580,8 +555,41 @@ function App() {
     };
     
     const handleClearDiff = () => {
-      // Clear all AI file changes when user accepts or reverts
+      // Clear all AI file changes when user accepts or reverts, and turn
+      // diff tabs back into normal editable Monaco tabs.
       setAiFileChanges({});
+      setTabs(prev => prev.map(tab => {
+        if (!tab.showDiff) return tab;
+        return {
+          ...tab,
+          content: tab.newContent ?? tab.content,
+          dirty: false,
+          showDiff: false,
+          newContent: null,
+          changeType: null,
+          originalContent: null
+        };
+      }));
+    };
+
+    const handleEditorCodeEditApplied = (event) => {
+      const { path, content } = event.detail || {};
+      if (!path || content === undefined) return;
+
+      const normalizedPath = normalizePath(path);
+      setTabs(prev => prev.map(tab => (
+        tab.path === normalizedPath
+          ? {
+              ...tab,
+              content,
+              dirty: true,
+              showDiff: false,
+              newContent: null,
+              changeType: null,
+              originalContent: null
+            }
+          : tab
+      )));
     };
 
     const handleOpenSettings = (event) => {
@@ -646,6 +654,7 @@ function App() {
     window.addEventListener('kaizer:close-terminal', handleCloseTerminal);
     window.addEventListener('kaizer:new-terminal', handleNewTerminal);
     window.addEventListener('kaizer:clear-diff', handleClearDiff);
+    window.addEventListener('kaizer:editor-code-edit-applied', handleEditorCodeEditApplied);
     window.addEventListener('kaizer:open-settings', handleOpenSettings);
     window.addEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     window.addEventListener('kaizer:terminal-execute', handleNewTerminal);
@@ -659,6 +668,7 @@ function App() {
       window.removeEventListener('kaizer:close-terminal', handleCloseTerminal);
       window.removeEventListener('kaizer:new-terminal', handleNewTerminal);
       window.removeEventListener('kaizer:clear-diff', handleClearDiff);
+      window.removeEventListener('kaizer:editor-code-edit-applied', handleEditorCodeEditApplied);
       window.removeEventListener('kaizer:open-settings', handleOpenSettings);
       window.removeEventListener('kaizer:open-ssh-modal', handleOpenSSHModal);
     };
@@ -762,43 +772,9 @@ function App() {
   const handleModelSelect = (model) => {
     setSettings(prev => {
       const providerKeys = JSON.parse(localStorage.getItem('kaizer-provider-keys') || '{}');
-      const newSettings = { ...prev, selectedModel: model };
-      
-      // Auto-switch provider if the model ID matches a specific provider
-      if (model.id.startsWith('gemini/')) {
-        newSettings.provider = 'google-gemini';
-        newSettings.endpoint = 'https://generativelanguage.googleapis.com/v1beta';
-      } else if (model.id.startsWith('kr/') || model.id.startsWith('anthropic/')) {
-        newSettings.provider = 'anthropic';
-        newSettings.endpoint = 'https://api.anthropic.com/v1';
-      } else if (model.id.startsWith('openrouter/')) {
-        newSettings.provider = 'openrouter';
-        newSettings.endpoint = 'https://openrouter.ai/api/v1';
-      } else if (model.id.startsWith('openai/') || model.id.startsWith('gpt-')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'https://api.openai.com/v1';
-      } else if (model.id.startsWith('qw/') || model.id.startsWith('qwen/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('opencode/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('codex/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('openclaw/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('claude/') && model.id.endsWith('-local')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('droid/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      } else if (model.id.startsWith('pi/')) {
-        newSettings.provider = 'openai-compatible';
-        newSettings.endpoint = 'http://localhost:11434/v1';
-      }
+      const provider = getModelProvider(model);
+      const endpoint = getModelEndpoint(model, prev.endpoint);
+      const newSettings = { ...prev, selectedModel: model, provider, endpoint };
       
       // Load the API key for the new provider
       newSettings.apiKey = providerKeys[newSettings.provider] || '';
@@ -812,15 +788,10 @@ function App() {
   useEffect(() => {
     if (settings.selectedModel) {
       const model = settings.selectedModel;
-      // If endpoint is still the local one but model is Gemini/Claude, fix it.
-      if (settings.endpoint === "http://localhost:20128/v1") {
-        if (model.id.startsWith('gemini/')) {
-          handleModelSelect(model);
-        } else if (model.id.startsWith('kr/') || model.id.startsWith('anthropic/')) {
-          handleModelSelect(model);
-        } else if (model.id.startsWith('droid/') || model.id.startsWith('pi/') || model.id.startsWith('openclaw/') || (model.id.startsWith('claude/') && model.id.endsWith('-local'))) {
-          handleModelSelect(model);
-        }
+      const expectedProvider = getModelProvider(model);
+      const expectedEndpoint = getModelEndpoint(model, settings.endpoint);
+      if (settings.provider !== expectedProvider || settings.endpoint !== expectedEndpoint) {
+        handleModelSelect(model);
       }
     }
     
@@ -922,9 +893,9 @@ function App() {
         }
         break;
       
-      case 'save-workspace':
+      case 'save-workspace': {
         if (workspacePath) {
-          const folderName = workspacePath.split(/[\\\/]/).pop() || 'Project';
+          const folderName = workspacePath.split(/[\\/]/).pop() || 'Project';
           const workspaceData = {
             name: folderName,
             path: workspacePath,
@@ -945,8 +916,9 @@ function App() {
           toast.error('You must open a folder first before saving it as a workspace.');
         }
         break;
+      }
       
-      case 'open-workspace':
+      case 'open-workspace': {
         console.log('[App] Opening workspace from file...');
         const openResult = await window.electron.openWorkspaceFile();
         if (openResult.success && openResult.workspaceData) {
@@ -972,6 +944,7 @@ function App() {
           setErrorMessage(`Failed to load workspace: ${openResult.error}`);
         }
         break;
+      }
 
       case 'close-session':
         console.log('[App] Closing session');

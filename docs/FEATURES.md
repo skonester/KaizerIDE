@@ -27,7 +27,7 @@ KaizerIDE combines a modern desktop code editor with local-first AI assistance, 
 - **Privacy-focused architecture** - No telemetry, no required accounts, and direct AI endpoint configuration.
 - **Integrated workflow tools** - Terminal, settings, shortcuts, file explorer, and command palette.
 - **Remote file support** - SSH/SFTP workflows for editing remote projects.
-- **Skonester Fork Enhancements** - Deep local AI integration using **Ollama** as the backend, with automated CLI tool installation, a local bridge server, and GPU-optimized inference specifically for **Qwen 2.5 Coder**.
+- **Skonester Fork Enhancements** - Deep local AI integration using direct **Ollama**, model discovery, and on-demand model pulls from inside the IDE.
 
 ---
 

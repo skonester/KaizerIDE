@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('electron', {
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   getFileOutline: (filePath) => ipcRenderer.invoke('get-file-outline', filePath),
   showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  getOllamaModels: () => ipcRenderer.invoke('ollama-get-models'),
+  pullOllamaModel: (modelName) => ipcRenderer.invoke('ollama-pull-model', modelName),
+  startOllama: () => ipcRenderer.invoke('ollama-start'),
   
   // Context menu integration - get path passed from command line
   getOpenPath: () => ipcRenderer.invoke('get-open-path'),

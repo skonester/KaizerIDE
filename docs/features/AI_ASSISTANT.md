@@ -71,17 +71,11 @@ For setup details, see **[Configuration](../CONFIGURATION.md)**.
 
 ---
 
-## AI CLI Tools
+## Ollama Models
 
-To enhance your AI-powered development workflow, KaizerIDE includes a helper script to install popular AI CLI tools (Gemini, Claude Code, Letta, Vibe, etc.).
+KaizerIDE works directly with Ollama through `http://localhost:11434/v1`.
 
-You can run this installation script from the project root using:
-
-```bash
-npm run install-ai-clis
-```
-
-This script will check for `npm`, `pip`, and `uv` to install the latest versions of various AI assistants and utilities, ensuring they are available in your system path for use within the integrated terminal.
+Use **Settings > AI Models** to refresh installed Ollama models, pull a new model by name, or import a shared GitHub model catalog. This keeps model setup inside the IDE instead of relying on external scripts.
 
 ---
 

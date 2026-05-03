@@ -21,20 +21,56 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     const separator = base.includes('\\') ? '\\' : '/';
     return base.endsWith(separator) ? base + cleanRelative : base + separator + cleanRelative;
   };
+
+  const isAbsolutePath = (filePath = '') =>
+    /^[a-zA-Z]:[\\/]/.test(filePath) ||
+    filePath.startsWith('\\\\') ||
+    filePath.startsWith('/');
+
+  const resolvePath = (filePath = '') =>
+    workspacePath && !isAbsolutePath(filePath)
+      ? joinPath(workspacePath, filePath)
+      : filePath;
+
+  const normalizeForCompare = (filePath = '') =>
+    filePath.replace(/\//g, '\\').toLowerCase();
+
+  const pathMatches = (left, right) =>
+    !!left && !!right && normalizeForCompare(resolvePath(left)) === normalizeForCompare(resolvePath(right));
+
+  const getOpenBufferContent = (filePath) => {
+    if (pathMatches(filePath, context.activeFile) && context.activeFileContent !== undefined && context.activeFileContent !== null) {
+      return context.activeFileContent;
+    }
+    return null;
+  };
   
   // Wrap tool execution with retry logic for transient failures
   const executeWithRetry = async (attemptNumber) => {
     switch (toolName) {
+      case 'get_active_file': {
+        if (!context.activeFile) {
+          return 'No file is currently open in Monaco.';
+        }
+
+        return [
+          `Active file: ${context.activeFile}`,
+          '',
+          context.activeFileContent ?? ''
+        ].join('\n');
+      }
+
       case 'read-file':
       case 'read_file': {
-        const fullPath = workspacePath
-          ? joinPath(workspacePath, args.path)
-          : args.path;
+        const fullPath = resolvePath(args.path);
         console.log('[Agent] read_file called for:', fullPath, {
           fromLine: args.fromLine,
           toLine: args.toLine,
         });
-        const result = await window.electron.readFile(fullPath);
+        const openBufferContent = getOpenBufferContent(fullPath);
+        const result = openBufferContent !== null
+          ? { success: true, content: openBufferContent }
+          : await window.electron.readFile(fullPath);
         if (!(result.success && result.content !== null && result.content !== undefined)) {
           const errorMsg = `Error reading file: ${result.error || 'File content is empty or null'}`;
           console.error('[Agent]', errorMsg, 'Path:', fullPath);
@@ -64,21 +100,24 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     case 'save_file':
     case 'write-file':
     case 'write_file': {
-      // Improve path handling: if args.path is absolute, use it directly
-      const isAbsolute = args.path.includes(':') || args.path.startsWith('/') || args.path.startsWith('\\');
-      const fullPath = (workspacePath && !isAbsolute)
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       
       console.log('[Agent] write_file called for:', fullPath);
       
-      // Read original content before writing
-      const existsResult = await window.electron.readFile(fullPath);
+      // Prefer Monaco's open buffer as the original content so agent edits
+      // target what the user is actually viewing, including unsaved changes.
+      const openBufferContent = getOpenBufferContent(fullPath);
+      const existsResult = openBufferContent !== null
+        ? { success: true, content: openBufferContent }
+        : await window.electron.readFile(fullPath);
       const fileType = existsResult.success ? 'modified' : 'added';
       const originalContent = (existsResult.success && existsResult.content !== null && existsResult.content !== undefined) ? existsResult.content : '';
       
       const result = await window.electron.writeFile(fullPath, args.content);
       if (result.success) {
+        if (pathMatches(fullPath, context.activeFile)) {
+          context.activeFileContent = args.content;
+        }
         // Dispatch event to notify UI of file change with diff data
         window.dispatchEvent(new CustomEvent('kaizer:file-written', { 
           detail: { 
@@ -87,7 +126,9 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
             content: args.content,
             originalContent: originalContent,
             oldContent: originalContent,
-            newContent: args.content
+            newContent: args.content,
+            applyToOpenBuffer: true,
+            showDiff: false
           } 
         }));
         return `File written successfully: ${args.path}`;
@@ -99,9 +140,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
 
     case 'create-file':
     case 'create_file': {
-      const fullPath = workspacePath
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       
       const parts = fullPath.split(/[\\/]/);
       const fileName = parts.pop();
@@ -117,9 +156,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     
     case 'list-directory':
     case 'list_directory': {
-      const fullPath = workspacePath 
-        ? joinPath(workspacePath, args.path || '')
-        : args.path || '.';
+      const fullPath = resolvePath(args.path || '.');
       const result = await window.electron.listDir(fullPath);
       if (result.success) {
         return result.entries
@@ -133,7 +170,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     case 'run-command':
     case 'run_command': {
       const cwd = args.cwd 
-        ? (workspacePath ? joinPath(workspacePath, args.cwd) : args.cwd)
+        ? resolvePath(args.cwd)
         : workspacePath;
       
       // Request user permission before executing
@@ -161,7 +198,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     
     case 'search_files': {
       const searchDir = args.directory 
-        ? (workspacePath ? joinPath(workspacePath, args.directory) : args.directory)
+        ? resolvePath(args.directory)
         : workspacePath;
       const result = await window.electron.searchFiles(args.query, searchDir);
       if (result.success) {
@@ -243,9 +280,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     }
 
     case 'get_file_outline': {
-      const fullPath = workspacePath
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       const result = await window.electron.getFileOutline(fullPath);
       if (result.success) {
         const outline = result.outline;
@@ -264,12 +299,14 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     }
 
     case 'patch_file': {
-      const fullPath = workspacePath
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       
-      // Read current content
-      const readResult = await window.electron.readFile(fullPath);
+      // Read current content, preferring the open Monaco buffer when this
+      // file is visible/dirty in the IDE.
+      const openBufferContent = getOpenBufferContent(fullPath);
+      const readResult = openBufferContent !== null
+        ? { success: true, content: openBufferContent }
+        : await window.electron.readFile(fullPath);
       if (!readResult.success) {
         return `Error reading file for patching: ${readResult.error}`;
       }
@@ -287,6 +324,9 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
       // Write patched content
       const writeResult = await window.electron.writeFile(fullPath, newContent);
       if (writeResult.success) {
+        if (pathMatches(fullPath, context.activeFile)) {
+          context.activeFileContent = newContent;
+        }
         // Dispatch event to notify UI of file change
         window.dispatchEvent(new CustomEvent('kaizer:file-written', {
           detail: {
@@ -295,7 +335,9 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
             content: newContent,
             originalContent: originalContent,
             oldContent: originalContent,
-            newContent: newContent
+            newContent: newContent,
+            applyToOpenBuffer: true,
+            showDiff: false
           }
         }));
         return `File patched successfully: ${args.path}`;
@@ -367,9 +409,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     }
 
     case 'create_folder': {
-      const fullPath = workspacePath
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       const result = await window.electron.createFolder(fullPath);
       if (result.success) {
         return `Folder created successfully: ${args.path}`;
@@ -379,9 +419,7 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     }
 
     case 'delete_file': {
-      const fullPath = workspacePath
-        ? joinPath(workspacePath, args.path)
-        : args.path;
+      const fullPath = resolvePath(args.path);
       const result = await window.electron.deleteFile(fullPath);
       if (result.success) {
         return `Successfully deleted: ${args.path}`;
@@ -391,12 +429,8 @@ export async function executeTool(toolName, args, workspacePath, context = {}) {
     }
 
     case 'rename_file': {
-      const oldFullPath = workspacePath
-        ? joinPath(workspacePath, args.oldPath)
-        : args.oldPath;
-      const newFullPath = workspacePath
-        ? joinPath(workspacePath, args.newPath)
-        : args.newPath;
+      const oldFullPath = resolvePath(args.oldPath);
+      const newFullPath = resolvePath(args.newPath);
       const result = await window.electron.renameFile(oldFullPath, newFullPath);
       if (result.success) {
         return `Successfully renamed ${args.oldPath} to ${args.newPath}`;

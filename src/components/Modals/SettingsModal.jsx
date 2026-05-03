@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { indexer } from '../../lib/indexer';
+import {
+  fetchOllamaModels,
+  fetchRemoteModelCatalog,
+  mergeModels
+} from '../../lib/ai/modelCatalog';
 import './SettingsModal.css';
 
 function SettingsModal({ settings, onSave, onClose, initialTab }) {
@@ -7,6 +12,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
   const [localSettings, setLocalSettings] = useState(settings);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
+  const [catalogStatus, setCatalogStatus] = useState('');
   
   // Store API keys per provider
   const [providerKeys, setProviderKeys] = useState(() => {
@@ -122,6 +128,100 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
     onSave(localSettings);
   };
 
+  const handleRefreshOllamaModels = async () => {
+    setCatalogStatus('Checking Ollama...');
+    try {
+      if (window.electron?.startOllama) {
+        const startResult = await window.electron.startOllama();
+        if (!startResult.success) {
+          throw new Error(startResult.error);
+        }
+      }
+
+      let ollamaModels;
+      if (window.electron?.getOllamaModels) {
+        const result = await window.electron.getOllamaModels();
+        if (!result.success) throw new Error(result.error);
+        ollamaModels = result.models.map((model) => ({
+          id: model.name,
+          name: `${model.name} (Ollama)`,
+          provider: 'ollama',
+          endpoint: 'http://localhost:11434/v1',
+          maxOutputTokens: 16000
+        }));
+      } else {
+        ollamaModels = await fetchOllamaModels();
+      }
+
+      setLocalSettings(prev => ({
+        ...prev,
+        models: mergeModels(prev.models, ollamaModels)
+      }));
+      setCatalogStatus(`Added ${ollamaModels.length} Ollama model${ollamaModels.length === 1 ? '' : 's'} from localhost.`);
+    } catch (error) {
+      setCatalogStatus(`Could not reach Ollama at localhost:11434. Start Ollama first. ${error.message}`);
+    }
+  };
+
+  const handlePullOllamaModel = async () => {
+    const modelName = prompt('Ollama model to pull:', 'qwen2.5-coder:7b');
+    if (!modelName) return;
+
+    setCatalogStatus(`Pulling ${modelName} with Ollama...`);
+    try {
+      if (window.electron?.startOllama) {
+        const startResult = await window.electron.startOllama();
+        if (!startResult.success) throw new Error(startResult.error);
+      }
+
+      if (window.electron?.pullOllamaModel) {
+        const result = await window.electron.pullOllamaModel(modelName);
+        if (!result.success) throw new Error(result.error);
+      } else {
+        const response = await fetch('http://localhost:11434/api/pull', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: modelName, stream: false })
+        });
+        if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
+      }
+
+      const pulledModel = {
+        id: modelName,
+        name: `${modelName} (Ollama)`,
+        provider: 'ollama',
+        endpoint: 'http://localhost:11434/v1',
+        maxOutputTokens: 16000
+      };
+      setLocalSettings(prev => ({
+        ...prev,
+        models: mergeModels(prev.models, [pulledModel])
+      }));
+      setCatalogStatus(`Pulled ${modelName}. Save AI Models to keep it in your picker.`);
+    } catch (error) {
+      setCatalogStatus(`Pull failed: ${error.message}`);
+    }
+  };
+
+  const handleImportCatalog = async () => {
+    const currentUrl = localSettings.modelCatalogUrl || '';
+    const catalogUrl = prompt('Raw GitHub model catalog URL (Kaizer JSON or LiteLLM model metadata):', currentUrl);
+    if (!catalogUrl) return;
+
+    setCatalogStatus('Downloading model catalog...');
+    try {
+      const remoteModels = await fetchRemoteModelCatalog(catalogUrl);
+      setLocalSettings(prev => ({
+        ...prev,
+        modelCatalogUrl: catalogUrl,
+        models: mergeModels(prev.models, remoteModels)
+      }));
+      setCatalogStatus(`Imported ${remoteModels.length} model${remoteModels.length === 1 ? '' : 's'} from catalog.`);
+    } catch (error) {
+      setCatalogStatus(`Catalog import failed: ${error.message}`);
+    }
+  };
+
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -174,6 +274,7 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                   className="model-select"
                 >
                   <option value="openai-compatible">OpenAI Compatible (Local/Proxy)</option>
+                  <option value="ollama">Ollama (Local)</option>
                   <option value="openai">OpenAI (Native)</option>
                   <option value="anthropic">Anthropic (Claude)</option>
                   <option value="google-gemini">Google Gemini</option>
@@ -207,7 +308,9 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                               ? 'https://api.deepseek.com/v1'
                               : localSettings.provider === 'mistral-vibe'
                                 ? 'https://api.mistral.ai/v1'
-                                : 'http://localhost:20128/v1'
+                                : localSettings.provider === 'ollama'
+                                  ? 'http://localhost:11434/v1'
+                                  : 'http://localhost:11434/v1'
                   }
                 />
                 <span className="setting-description">
@@ -217,6 +320,8 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
                       ? 'Google AI Studio / Gemini endpoint'
                       : localSettings.provider === 'openrouter'
                         ? 'OpenRouter API endpoint (https://openrouter.ai/api/v1)'
+                        : localSettings.provider === 'ollama'
+                          ? 'Ollama OpenAI-compatible endpoint (http://localhost:11434/v1)'
                         : 'API endpoint for AI chat functionality'}
                 </span>
               </div>
@@ -540,6 +645,29 @@ function SettingsModal({ settings, onSave, onClose, initialTab }) {
 
           {activeTab === 'models' && (
             <div className="settings-panel">
+              <div className="setting-group">
+                <label>Model Catalog</label>
+                <span className="setting-description">
+                  Keep the built-in list small, then pull installed Ollama models or a shared raw GitHub JSON catalog when needed.
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                  <button className="small-btn" onClick={handleRefreshOllamaModels}>
+                    Refresh Ollama Models
+                  </button>
+                  <button className="small-btn" onClick={handlePullOllamaModel}>
+                    Pull Ollama Model
+                  </button>
+                  <button className="small-btn" onClick={handleImportCatalog}>
+                    Import GitHub Catalog
+                  </button>
+                </div>
+                {catalogStatus && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-2)' }}>
+                    {catalogStatus}
+                  </div>
+                )}
+              </div>
+
               <div className="models-list">
                 {localSettings.models.map(model => (
                   <div key={model.id} className="model-row">

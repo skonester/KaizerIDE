@@ -1,3 +1,66 @@
+import { TOOLS } from './tools';
+
+const KNOWN_TOOL_NAMES = new Set(TOOLS.map(tool => tool.function.name));
+
+function stripJsonFence(content) {
+  const trimmed = (content || '').trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
+function parseJsonLenient(content) {
+  const raw = stripJsonFence(content);
+  if (!raw.startsWith('{') || !raw.endsWith('}')) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    try {
+      // Some local models emit Windows paths as C:\Users\... inside JSON,
+      // which is invalid JSON. Escape only backslashes that are not already
+      // part of a valid JSON escape sequence.
+      return JSON.parse(raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\'));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normalizeRawToolCall(content) {
+  const parsed = parseJsonLenient(content);
+  if (!parsed || Array.isArray(parsed)) return null;
+
+  const name =
+    parsed.name ||
+    parsed.tool ||
+    parsed.tool_name ||
+    parsed.function?.name;
+
+  if (!name || !KNOWN_TOOL_NAMES.has(name)) return null;
+
+  const args =
+    parsed.arguments ??
+    parsed.args ??
+    parsed.parameters ??
+    parsed.input ??
+    parsed.function?.arguments ??
+    {};
+
+  let normalizedArgs = args;
+  if (typeof normalizedArgs === 'string') {
+    normalizedArgs = parseJsonLenient(normalizedArgs) || {};
+  }
+
+  return {
+    id: `raw_tool_${Date.now()}_0`,
+    type: 'function',
+    function: {
+      name,
+      arguments: JSON.stringify(normalizedArgs && typeof normalizedArgs === 'object' ? normalizedArgs : {})
+    }
+  };
+}
+
 /**
  * Consume SSE stream and accumulate content + tool calls + thinking
  */
@@ -155,7 +218,16 @@ export async function consumeStream(response, onToken, onThinkingToken, alreadyS
     reader.releaseLock();
   }
   
-  const toolCallsArray = Object.values(toolCallMap);
+  let toolCallsArray = Object.values(toolCallMap);
+
+  if (toolCallsArray.length === 0) {
+    const rawToolCall = normalizeRawToolCall(mainContent);
+    if (rawToolCall) {
+      console.log('[StreamProcessor] Converted raw JSON tool request into tool call:', rawToolCall.function.name);
+      toolCallsArray = [rawToolCall];
+      mainContent = '';
+    }
+  }
   
   if (fullThinking) {
     console.log('[StreamProcessor] ✅ Thinking completed. Total length:', fullThinking.length, 'characters');

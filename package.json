@@ -6,7 +6,8 @@
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5175 && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5175 && npm run electron:dev\"",
+    "electron:dev": "node electron/start-electron-dev.cjs",
     "build": "vite build",
     "electron:build": "npm run build && electron-builder --win --x64",
     "build:win": "npm run build && electron-builder --win --x64",
@@ -16,9 +17,7 @@
     "lint": "eslint \"src/**/*.{js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css,json}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\"",
-    "install-ai-clis": "powershell -ExecutionPolicy Bypass -File ./scripts/install-ai-clis.ps1",
-    "start-ai": "powershell -ExecutionPolicy Bypass -File ./scripts/start-local-ai.ps1"
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json}\""
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",
@@ -60,7 +59,6 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "scripts/**/*",
       "docs/images/logo.png",
       "docs/images/logo.ico",
       "!src/**/*",

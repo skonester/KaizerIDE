@@ -294,17 +294,17 @@ function HelpModal({ onClose, onOpenSettings }) {
                 <div className="help-feature-item">
                   <h4>🤖 Ollama & Local AI</h4>
                   <p>
-                    KaizerIDE is optimized for local AI via Ollama and LiteLLM. 
-                    We've pre-configured several high-performance models:
+                    KaizerIDE is optimized for local AI via direct Ollama. 
+                    You can import installed models or pull new models from Settings:
                   </p>
                   <ul>
                     <li><strong>Qwen 2.5 Coder</strong> - Best-in-class local coding model</li>
-                    <li><strong>OpenClaw</strong> - Advanced reasoning and planning</li>
-                    <li><strong>Claude (Local)</strong> - Ollama-powered Claude compatible model</li>
+                    <li><strong>DeepSeek Coder</strong> - Strong local code generation</li>
+                    <li><strong>Code Llama</strong> - General coding assistant model</li>
                   </ul>
                   <div className="help-info-box">
                     <strong>💡 Local Setup:</strong>
-                    <p>Run <code>npm run install-ai-clis</code> and <code>npm run start-ai</code> to enable these models.</p>
+                    <p>Open <strong>Settings &gt; AI Models</strong>, then use <strong>Refresh Ollama Models</strong> or <strong>Pull Ollama Model</strong>.</p>
                   </div>
                 </div>
 

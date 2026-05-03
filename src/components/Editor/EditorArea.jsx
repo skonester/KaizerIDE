@@ -79,6 +79,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
   const pendingDiffs = useRef({});
   // Queue for code edits that arrive before editor is ready
   const pendingCodeEdits = useRef([]);
+  const activeTabRef = useRef(activeTab);
   const [editorContextMenu, setEditorContextMenu] = useState(null);
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -92,6 +93,22 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
 
   // Check if current tab is a PowerShell script
   const isPs1 = activeTab && activeTab.toLowerCase().endsWith('.ps1');
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const normalizePathForCompare = (path) => (path || '').replace(/\//g, '\\').toLowerCase();
+
+  const pathsMatch = (left, right) => {
+    if (!left || !right) return false;
+    return normalizePathForCompare(left) === normalizePathForCompare(right);
+  };
+
+  const suggestionTargetsActiveTab = (suggestion) => {
+    if (!suggestion?.filePath) return true;
+    return pathsMatch(suggestion.filePath, activeTabRef.current);
+  };
 
   // Turn a unified line-diff (from computeLineDiff) into two lists the
   // editor needs:
@@ -270,7 +287,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     }
 
     try {
-      const { filePath, oldCode, newCode, lineStart, lineEnd } = suggestion;
+      const { oldCode, newCode, lineStart, lineEnd } = suggestion;
       const model = editor.getModel();
       
       if (!model) {
@@ -385,6 +402,15 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
 
       // Focus the editor after applying the edit
       editor.focus();
+
+      const appliedPath = activeTabRef.current || suggestion.filePath;
+      window.dispatchEvent(new CustomEvent('kaizer:editor-code-edit-applied', {
+        detail: {
+          path: appliedPath,
+          content: model.getValue(),
+          suggestion
+        }
+      }));
       
       // Show success notification
       const event = new CustomEvent('kaizer:show-toast', {
@@ -494,6 +520,15 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         return;
       }
       
+      if (!suggestionTargetsActiveTab(suggestion)) {
+        console.log('[EditorArea] Opening target file before applying edit:', suggestion.filePath);
+        pendingCodeEdits.current.push(suggestion);
+        window.dispatchEvent(new CustomEvent('kaizer:open-file', {
+          detail: { path: suggestion.filePath }
+        }));
+        return;
+      }
+
       // Check if editor is ready
       if (editorRef.current && editorRef.current.getModel) {
         console.log('[EditorArea] Editor ready, applying code edit...');
@@ -550,6 +585,18 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
       // Clear decorations when switching to a tab without pending diffs
       clearDecorations();
     }
+
+    if (pendingCodeEdits.current.length > 0 && editorRef.current?.getModel?.()) {
+      const readyEdits = pendingCodeEdits.current.filter(suggestionTargetsActiveTab);
+      pendingCodeEdits.current = pendingCodeEdits.current.filter(
+        suggestion => !suggestionTargetsActiveTab(suggestion)
+      );
+      if (readyEdits.length > 0) {
+        queueMicrotask(() => {
+          readyEdits.forEach(suggestion => applyCodeEditToEditor(suggestion));
+        });
+      }
+    }
   }, [activeTab]);
 
   // Re-apply diff decorations whenever the active tab's diff data
@@ -593,11 +640,14 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
     
     // Process any pending code edits that arrived before editor was ready
     if (pendingCodeEdits.current.length > 0) {
-      console.log('[EditorArea] Applying', pendingCodeEdits.current.length, 'pending code edits');
-      pendingCodeEdits.current.forEach(suggestion => {
+      const readyEdits = pendingCodeEdits.current.filter(suggestionTargetsActiveTab);
+      pendingCodeEdits.current = pendingCodeEdits.current.filter(
+        suggestion => !suggestionTargetsActiveTab(suggestion)
+      );
+      console.log('[EditorArea] Applying', readyEdits.length, 'pending code edits');
+      readyEdits.forEach(suggestion => {
         applyCodeEditToEditor(suggestion);
       });
-      pendingCodeEdits.current = [];
     }
 
     // If the AI wrote this file while Monaco was still mounting, the
@@ -1737,7 +1787,7 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
         {isPs1 && !isPreviewTab && activeTabData && (
           <div className="plan-action-buttons">
             <button 
-              className={`plan-action-btn run-btn ${activeTab.includes('start-local-ai') ? 'service-btn' : ''}`}
+              className="plan-action-btn run-btn"
               onClick={() => {
                 // Ensure terminal is visible first
                 window.dispatchEvent(new CustomEvent('kaizer:new-terminal'));
@@ -1751,9 +1801,9 @@ function EditorArea({ tabs, activeTab, onTabSelect, onTabClose, onContentChange 
                   }));
                 }, 500);
               }}
-              title={activeTab.includes('start-local-ai') ? "Start AI Server" : "Run Script in Terminal"}
+              title="Run Script in Terminal"
             >
-              {activeTab.includes('start-local-ai') ? "⚡ Start AI Server" : "▶ Run Script"}
+              Run Script
             </button>
           </div>
         )}

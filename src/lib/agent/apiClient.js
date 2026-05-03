@@ -1,4 +1,5 @@
 import { consumeStream } from './streamProcessor';
+import { ollamaAgentServer } from './OllamaAgentServer';
 
 /**
  * Shared API client for agents
@@ -14,7 +15,7 @@ export async function makeAgentApiCall(context, messages, tools = null, iteratio
       return await makeGeminiCall(context, messages, tools, iteration);
     } else if (provider === 'anthropic') {
       return await makeAnthropicCall(context, messages, tools, iteration);
-    } else if (provider === 'openai' || provider === 'deepseek' || provider === 'qwen' || provider === 'opencode' || provider === 'mistral-vibe' || provider === 'openrouter' || provider === 'letta') {
+    } else if (provider === 'openai' || provider === 'ollama' || provider === 'deepseek' || provider === 'qwen' || provider === 'opencode' || provider === 'mistral-vibe' || provider === 'openrouter' || provider === 'letta') {
       // These all use OpenAI-compatible format
       return await makeOpenAiCall(context, messages, tools, iteration);
     } else {
@@ -32,10 +33,12 @@ export async function makeAgentApiCall(context, messages, tools = null, iteratio
       const isLocal = target.includes('localhost') || target.includes('127.0.0.1');
       
       if (isLocal) {
-        throw new Error(`Failed to connect to local AI service at ${target}.
-
-Please ensure your local AI provider is running.
-If you are using the scripted models (Codex, Qwen, etc.), open 'scripts/start-local-ai.ps1' and click the '⚡ Start AI Server' button to bridge the connection.`);
+        throw new Error([
+          `Failed to connect to local AI service at ${target}.`,
+          '',
+          'Start Ollama, then use the local endpoint http://localhost:11434/v1.',
+          'In Settings > AI Models, use Refresh Ollama Models or Pull Ollama Model.'
+        ].join('\n'));
       }
       
       throw new Error(`Failed to connect to ${target}. Please ensure the AI provider is running, your internet is connected, and the endpoint URL is correct. (Reason: Network Error or CSP violation)`);
@@ -78,36 +81,25 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
   let finalModel = selectedModel.id;
   let finalEndpoint = endpoint;
   
-  const scriptedPrefixes = ['qwen/', 'opencode/', 'codex/', 'openclaw/', 'claude/', 'droid/', 'pi/', 'kaizer/'];
-  if (scriptedPrefixes.some(p => finalModel.startsWith(p))) {
-    // If it's a scripted model but the user hasn't explicitly changed the endpoint from the default LiteLLM port,
-    // then we force direct Ollama connection as it's the most stable path for these specific models.
-    if (endpoint === "http://localhost:20128/v1") {
-      finalEndpoint = 'http://localhost:11434/v1';
-    }
-    
-    // Map to a known coder model if using the scripted prefix, but allow for variations.
-    if (finalModel === 'kaizer/qwen-coder') {
-        // Keep the exact name for the GPU-forced model
-    } else if (finalModel.startsWith('droid/') || finalModel.startsWith('pi/') || finalModel.startsWith('claude/') || finalModel.startsWith('openclaw/')) {
-      finalModel = 'qwen2.5-coder:1.5b';
-    } else if (!finalModel.toLowerCase().includes('coder')) {
-      finalModel = 'qwen2.5-coder:1.5b';
-    } else {
-      // Strip the prefix for the actual Ollama call
-      finalModel = 'qwen2.5-coder:1.5b';
-    }
+  const legacyAliasPrefixes = ['qwen/', 'opencode/', 'codex/', 'openclaw/', 'claude/', 'droid/', 'pi/', 'kaizer/'];
+  if (legacyAliasPrefixes.some(p => finalModel.startsWith(p))) {
+    finalEndpoint = 'http://localhost:11434/v1';
+    finalModel = 'qwen2.5-coder:1.5b';
   }
+
+  const useNativeTools = ollamaAgentServer.shouldUseNativeTools(context.settings, tools);
+  const useTextToolFallback = ollamaAgentServer.supportsTextToolFallback(context.settings, tools) && !useNativeTools;
+  const requestMessages = ollamaAgentServer.prepareMessages(messages, tools, useTextToolFallback);
 
   const body = {
     model: finalModel,
-    messages: messages.filter(m => ['user', 'assistant', 'system', 'tool', 'function'].includes(m.role)),
+    messages: requestMessages,
     stream: true,
     max_tokens: selectedModel.maxOutputTokens,
     temperature: 0.7
   };
   
-  if (tools && tools.length > 0) {
+  if (tools && tools.length > 0 && useNativeTools) {
     body.tools = tools;
     body.tool_choice = 'auto';
   }
@@ -119,7 +111,8 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
 
   console.log(`[ApiClient] Making ${provider} call to ${finalEndpoint} with model ${finalModel}`, {
     messageCount: body.messages.length,
-    hasTools: !!tools
+    hasTools: !!tools && useNativeTools,
+    textToolFallback: useTextToolFallback
   });
   
   const response = await fetch(`${finalEndpoint}/chat/completions`, {
@@ -131,6 +124,11 @@ async function makeOpenAiCall(context, messages, tools, iteration) {
   
   if (!response.ok) {
     const errorText = await response.text();
+    if (ollamaAgentServer.supportsTextToolFallback(context.settings, tools) && ollamaAgentServer.isToolsUnsupportedError(response.status, errorText)) {
+      console.warn('[ApiClient] Ollama model rejected native tools; retrying with text tool fallback.');
+      ollamaAgentServer.markTextToolFallback(context.settings);
+      return await makeOpenAiCall(context, messages, tools, iteration);
+    }
     throw new Error(`API Error ${response.status}: ${errorText}`);
   }
   

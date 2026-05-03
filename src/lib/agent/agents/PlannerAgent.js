@@ -25,6 +25,7 @@ export class PlannerAgent extends AgentBase {
       canWrite: false,
       canExecute: false,
       allowedTools: [
+        'get_active_file',
         'read_file',
         'list_directory',
         'search_files',
@@ -145,7 +146,7 @@ project-name/
 │   ├── integration/
 │   └── conftest.py
 ├── docs/                        # Documentation
-├── scripts/                     # Utility scripts
+├── tools/                       # Utility commands
 ├── requirements.txt             # Python dependencies
 ├── setup.py                     # Package setup
 ├── .env.example                 # Environment variables example
@@ -262,7 +263,7 @@ project-name/
 │       └── helpers.go
 ├── api/                         # API definitions (OpenAPI/Swagger)
 │   └── openapi.yaml
-├── scripts/                     # Build and deployment scripts
+├── build/                       # Build and deployment config
 ├── tests/                       # Test files
 ├── docs/                        # Documentation
 ├── go.mod                       # Go module definition
@@ -851,6 +852,7 @@ Analyzing your request and creating a detailed plan...
         toolResultMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
+          name: toolName,
           content: `Error: Tool '${toolName}' is not allowed in Planner mode. Only read-only tools are available.`
         });
         continue;
@@ -867,7 +869,7 @@ Analyzing your request and creating a detailed plan...
       let result;
       try {
         const startTime = Date.now();
-        result = await executeTool(toolName, args, context.workspacePath);
+        result = await executeTool(toolName, args, context.workspacePath, context);
         const duration = Date.now() - startTime;
         context.metrics?.recordToolExecution(toolName, duration, true);
       } catch (error) {
@@ -887,6 +889,7 @@ Analyzing your request and creating a detailed plan...
       toolResultMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
+        name: toolName,
         content: typeof result === 'string' ? result : JSON.stringify(result)
       });
     }

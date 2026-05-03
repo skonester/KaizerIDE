@@ -1,11 +1,14 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import { Client } from 'ssh2';
 import { spawn } from 'child_process';
 
+const require = createRequire(import.meta.url);
+const electron = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = electron;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -204,8 +207,8 @@ function createWelcomeWindow() {
   });
 
   if (isDev) {
-    console.log('[Main] Loading Welcome window URL: http://localhost:5174#welcome');
-    welcomeWindow.loadURL('http://localhost:5174#welcome');
+    console.log('[Main] Loading Welcome window URL: http://localhost:5175#welcome');
+    welcomeWindow.loadURL('http://localhost:5175#welcome');
     welcomeWindow.webContents.openDevTools();
   } else {
     const welcomePath = path.join(__dirname, '../dist/index.html');
@@ -263,8 +266,8 @@ function createWindow() {
   });
 
   if (isDev) {
-    console.log('[Main] Loading Main window URL: http://localhost:5174');
-    mainWindow.loadURL('http://localhost:5174');
+    console.log('[Main] Loading Main window URL: http://localhost:5175');
+    mainWindow.loadURL('http://localhost:5175');
     mainWindow.webContents.openDevTools();
   } else {
     const indexPath = path.join(__dirname, '../dist/index.html');
@@ -604,6 +607,66 @@ ipcMain.handle('search-files', async (event, query, directory) => {
     
     walkDirectory(directory);
     return { success: true, results };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+async function fetchOllama(pathname, options = {}) {
+  const response = await fetch(`http://localhost:11434${pathname}`, options);
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Ollama returned ${response.status}`);
+  }
+  return response;
+}
+
+ipcMain.handle('ollama-start', async () => {
+  try {
+    await fetchOllama('/api/tags');
+    return { success: true, alreadyRunning: true };
+  } catch {
+    try {
+      const child = spawn('ollama', ['serve'], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      child.unref();
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      await fetchOllama('/api/tags');
+      return { success: true, started: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Could not start Ollama. Make sure Ollama is installed. ${error.message}`
+      };
+    }
+  }
+});
+
+ipcMain.handle('ollama-get-models', async () => {
+  try {
+    const response = await fetchOllama('/api/tags');
+    const data = await response.json();
+    return { success: true, models: data.models || [] };
+  } catch (error) {
+    return { success: false, error: error.message, models: [] };
+  }
+});
+
+ipcMain.handle('ollama-pull-model', async (event, modelName) => {
+  if (!modelName || typeof modelName !== 'string') {
+    return { success: false, error: 'Model name is required' };
+  }
+
+  try {
+    await fetchOllama('/api/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: modelName, stream: false })
+    });
+    return { success: true, model: modelName };
   } catch (error) {
     return { success: false, error: error.message };
   }

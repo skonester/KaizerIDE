@@ -17,7 +17,7 @@ Configure AI providers, editor behavior, appearance, and core workspace settings
 Example local endpoint:
 
 ```text
-http://localhost:20128/v1
+http://localhost:11434/v1
 ```
 
 ---

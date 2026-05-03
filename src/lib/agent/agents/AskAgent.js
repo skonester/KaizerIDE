@@ -25,6 +25,7 @@ export class AskAgent extends AgentBase {
       canWrite: false,
       canExecute: false,
       allowedTools: [
+        'get_active_file',
         'read_file',
         'list_directory',
         'search_files',
@@ -266,6 +267,7 @@ IMPORTANT:
         toolResultMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
+          name: toolName,
           content: `Error: Tool '${toolName}' is not allowed in Ask mode. Only read-only tools are available.`
         });
         continue;
@@ -282,7 +284,7 @@ IMPORTANT:
       let result;
       try {
         const startTime = Date.now();
-        result = await executeTool(toolName, args, context.workspacePath);
+        result = await executeTool(toolName, args, context.workspacePath, context);
         const duration = Date.now() - startTime;
         context.metrics?.recordToolExecution(toolName, duration, true);
       } catch (error) {
@@ -302,6 +304,7 @@ IMPORTANT:
       toolResultMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
+        name: toolName,
         content: typeof result === 'string' ? result : JSON.stringify(result)
       });
     }
